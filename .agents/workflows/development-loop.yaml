@@ -1,0 +1,23 @@
+name: "Feature Development Loop"
+description: "Standard workflow for developing features within the my-ob1 project while maintaining strict context synchronization."
+
+steps:
+  - id: step_1_sync
+    name: "Context Synchronization"
+    action: "Read `.agents/skills/project-context/SKILL.md` and related state files."
+    instruction: "Analyze the requested feature against the current project state and schema. Identify any missing information or dependencies required to build the feature."
+
+  - id: step_2_plan
+    name: "Formulate Plan & Seek Approval"
+    action: "Output a step-by-step technical implementation plan."
+    instruction: "Detail exactly which files will be created or modified (e.g., Supabase migrations, Edge Function TypeScript, MCP Python code). Pause and explicitly ask the user for approval to proceed. Do not execute code until approval is granted."
+
+  - id: step_3_execute
+    name: "Execute & Verify"
+    action: "Write code, generate files, and run local verifications."
+    instruction: "Implement the approved plan using workspace tools. If building an Edge Function, ensure Deno syntax is correct. If modifying Python MCP code, ensure compatibility with the project environment."
+
+  - id: step_4_update_state
+    name: "Update Context State"
+    action: "Modify `.agents/skills/project-context/` files."
+    instruction: "Summarize the architectural changes made during execution. Update `schema-state.md` if DB changes occurred, or `roadmap.md` if a phase milestone was reached. Confirm with the user that the context has been successfully synchronized."
