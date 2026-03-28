@@ -1,0 +1,14 @@
+-- Migration: Delete all rows from all tables
+-- Uses TRUNCATE ... CASCADE to handle foreign key dependencies in a single statement.
+
+TRUNCATE TABLE
+    public.memory_threads,
+    public.memory_entities,
+    public.system_insights,
+    public.artifacts,
+    public.tasks,
+    public.goals_and_principles,
+    public.threads,
+    public.entities,
+    public.memories
+CASCADE;
