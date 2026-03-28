@@ -1,0 +1,14 @@
+# Credentials
+.key.txt
+
+# Supabase local config
+supabase/.temp/
+
+# OS files
+.DS_Store
+
+# Node
+node_modules/
+
+# Editor
+.vscode/
