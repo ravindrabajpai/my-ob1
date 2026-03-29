@@ -2,13 +2,14 @@
 -- Uses TRUNCATE ... CASCADE to handle foreign key dependencies in a single statement.
 
 -- TRUNCATE TABLE
---     public.memory_threads,
---     public.memory_entities,
---     public.system_insights,
 --     public.artifacts,
---     public.tasks,
---     public.goals_and_principles,
---     public.threads,
 --     public.entities,
+--     public.goals_and_principles,
 --     public.memories
+--     public.memory_entities,
+--     public.memory_threads,
+--     public.synthesis_reports,
+--     public.system_insights,
+--     public.tasks,
+--     public.threads
 -- CASCADE;
