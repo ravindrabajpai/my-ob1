@@ -560,6 +560,38 @@ server.registerTool(
   }
 );
 
+// Tool 14: Get Recent Synthesis
+server.registerTool(
+  "get_recent_synthesis",
+  {
+    title: "Get Recent Synthesis",
+    description: "Fetch the most recently generated cognitive digests/weekly summaries.",
+    inputSchema: {
+      limit: z.number().optional().default(1).describe("How many recent reports to fetch (default: 1)"),
+    },
+  },
+  async ({ limit }: { limit?: number }) => {
+    try {
+      const { data, error } = await supabase
+        .from("synthesis_reports")
+        .select("content, date_range_start, date_range_end, created_at")
+        .order("created_at", { ascending: false })
+        .limit(limit || 1);
+
+      if (error) throw error;
+      if (!data?.length) return { content: [{ type: "text" as const, text: "No synthesis reports found in the database. Run the automated-synthesis webhook first." }] };
+
+      const output = data.map((r: any) => {
+        return `--- Report from ${new Date(r.date_range_start).toLocaleDateString()} to ${new Date(r.date_range_end).toLocaleDateString()} ---\n${r.content}`;
+      }).join("\n\n");
+
+      return { content: [{ type: "text" as const, text: output }] };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
 // --- Hono App with Auth Check ---
 
 const app = new Hono();

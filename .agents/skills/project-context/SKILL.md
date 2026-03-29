@@ -83,10 +83,10 @@ Slack Message (+ optional file attachments)
 | Phase 6: Interactive MCP Tools | ✅ Complete | Mutation tools for tasks, entities, and goals + deduplication RPC |
 | Phase 7: Direct Entity & Task Queries | ✅ Complete | Deterministic structure lookup tools (`list_tasks`, `list_entities`, etc.) |
 | Phase 8: `capture_memory` Parity | ✅ Complete | Sync MCP tool with Slack ingestion (Threads & Mentorship logic) |
+| Phase 9: Automated Synthesis | ✅ Complete | Weekly digest extraction sent to Slack |
 
 **What is NOT yet built** (see [roadmap.md](./roadmap.md) for details):
 1. Artifact processing pipeline (OCR, transcription)
-2. Automated synthesis (weekly digests)
 
 ---
 
@@ -116,15 +116,19 @@ my-ob1/
 │   │   ├── process-memory/
 │   │   │   ├── index.ts                # Async background job for LLM extraction and graph population
 │   │   │   └── deno.json
+│   │   ├── automated-synthesis/
+│   │   │   ├── index.ts                # Scheduled job (generate and push weekly digest to Slack)
+│   │   │   └── deno.json
 │   │   └── open-brain-mcp/
-│   │       ├── index.ts                # MCP server (4 tools) via Hono + StreamableHTTPTransport
+│   │       ├── index.ts                # MCP server (14 tools) via Hono + StreamableHTTPTransport
 │   │       └── deno.json
 │   └── migrations/
 │       ├── 001_expanded_schema.sql     # Core graph schema (7 tables + RPC)
 │       ├── 002_threads.sql             # threads + memory_threads
 │       ├── 003_delete_all_data.sql     # Data reset utility (TRUNCATE CASCADE)
 │       ├── 004_async_ingestion.sql     # Database webhook for async processing
-│       └── 005_mcp_mutations.sql       # RPCs and schema additions for MCP tools
+│       ├── 005_mcp_mutations.sql       # RPCs and schema additions for MCP tools
+│       └── 006_automated_synthesis.sql # synthesis_reports table for weekly digests
 ├── mcp-server/                         # UNUSED — MCP lives in supabase/functions/open-brain-mcp
 ├── .agents/
 │   ├── skills/project-context/

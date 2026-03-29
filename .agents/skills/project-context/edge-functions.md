@@ -12,7 +12,8 @@ All server-side logic runs as **Supabase Edge Functions** written in **Deno/Type
 |----------|------|---------|
 | `ingest-thought` | `supabase/functions/ingest-thought/index.ts` | Slack webhook receiver → fast sync insert to `memories` |
 | `process-memory` | `supabase/functions/process-memory/index.ts` | Background job (triggered by `pg_net` webhook) → LLM extraction + graph ingestion |
-| `open-brain-mcp` | `supabase/functions/open-brain-mcp/index.ts` | MCP server exposing 4 semantic tools to AI clients |
+| `automated-synthesis` | `supabase/functions/automated-synthesis/index.ts` | Cron job/webhook (generates weekly digest, saves to DB, posts to Slack) |
+| `open-brain-mcp` | `supabase/functions/open-brain-mcp/index.ts` | MCP server exposing tools to AI clients |
 | `_shared/brain-engine.ts` | `supabase/functions/_shared/brain-engine.ts` | Shared AI module (embeddings, metadata extraction, goal evaluation) |
 
 ---
@@ -28,6 +29,7 @@ All LLM operations are centralized here. Both Edge Functions import from this mo
 | `getEmbedding(text)` | `openai/text-embedding-3-small` | Generates 1536-dim vector embedding via OpenRouter |
 | `extractMetadata(text)` | `openai/gpt-4o-mini` | Extracts structured JSON: `memory_type`, `extracted_tasks`, `associated_threads`, `entities_detected`, `strategic_alignment` |
 | `evaluateAgainstGoals(memoryText, goals[])` | `openai/gpt-4o-mini` | Evaluates a memory against user's goals/principles; returns 1-2 sentence insight or `null` |
+| `generateSynthesis(memories, tasks, insights, goals)` | `openai/gpt-4o-mini` | Extracts patterns and summarizes a weekly backlog into a single markdown digest |
 
 ### LLM Output Schema (from `extractMetadata`)
 
@@ -131,6 +133,7 @@ Captured as *observation*
 | `list_entities` | `type?` (Person \| Project \| Concept), `limit?` (20) | List and filter entities by type. |
 | `list_threads` | `limit?` (20) | List all active work/life streams. |
 | `get_thread_context` | `thread_id` (string/uuid) | Retrieve all memories linked to a specific thread. |
+| `get_recent_synthesis` | `limit?` (1) | Fetch the most recently generated cognitive digests/weekly summaries. |
 
 ### Key Implementation Details
 

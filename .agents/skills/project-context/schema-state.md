@@ -16,6 +16,7 @@ The database is **Supabase PostgreSQL** with the `pgvector` extension for semant
 | `003_delete_all_data.sql` | Data reset utility (`TRUNCATE ... CASCADE` on all tables) |
 | `004_async_ingestion.sql` | Async ingestion: add `slack_metadata` to `memories`, `pg_net` webhook trigger for `process-memory` |
 | `005_mcp_mutations.sql` | MCP mutations: add `status` to `goals_and_principles`, create `merge_entities()` RPC |
+| `006_automated_synthesis.sql` | `synthesis_reports` table for weekly digests and pg_cron script definition |
 
 ---
 

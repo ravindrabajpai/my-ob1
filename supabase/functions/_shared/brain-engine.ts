@@ -100,3 +100,54 @@ export async function evaluateAgainstGoals(memoryText: string, goals: string[]):
     if (!insight || insight === "null") return null;
     return insight;
 }
+
+export async function generateSynthesis(memories: any[], tasks: any[], insights: any[], activeGoals: any[]): Promise<string | null> {
+    const prompt = `
+You are an executive summary assistant analyzing the user's weekly brain dump.
+
+Below is the raw data captured over the last week:
+---
+ACTIVE GOALS:
+${activeGoals.map((g: any) => `- ${g.content}`).join("\n")}
+
+NEW THOUGHTS/OBSERVATIONS:
+${memories.map((m: any) => `- [${m.type}] ${m.content}`).join("\n")}
+
+OPEN ACTION ITEMS:
+${tasks.map((t: any) => `- [${t.status}] ${t.description}`).join("\n")}
+
+SYSTEM MENTORSHIP INSIGHTS GENERATED:
+${insights.map((i: any) => `- ${i.content}`).join("\n")}
+---
+
+Write a concise, high-level "Weekly Synthesis Report" (in Markdown). Include:
+1. **Emerging Themes**: What patterns or recurring ideas are appearing in their thoughts?
+2. **Goal Alignment**: Are they actually moving towards their active goals, or getting distracted?
+3. **Action Priority**: What are the top 2-3 tasks they should tackle next week based on their goals and thoughts?
+
+Be direct, insightful, and avoid unnecessary filler. Use modern, clean markdown formatting.
+`;
+
+    try {
+        const response = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json; charset=utf-8",
+            },
+            body: JSON.stringify({
+                model: "openai/gpt-4o-mini",
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.4
+            }),
+        });
+
+        if (!response.ok) return null;
+
+        const data = await response.json();
+        return data.choices[0]?.message?.content?.trim() || null;
+    } catch (e) {
+        console.error("Synthesis error:", e);
+        return null;
+    }
+}

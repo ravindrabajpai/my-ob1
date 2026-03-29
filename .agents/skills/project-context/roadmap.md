@@ -57,6 +57,12 @@
 - [x] Upsert generated threads and link them via `memory_threads`.
 - [x] Expand MCP feedback response to include Thread counting and Insight surfacing.
 
+### Phase 9: Automated Synthesis
+- [x] Create `synthesis_reports` table (migration `006_automated_synthesis.sql`).
+- [x] Create `automated-synthesis` Edge Function to fetch last 7 days of data and evaluate via LLM.
+- [x] Add Slack integration to push generated digest directly to `SLACK_CAPTURE_CHANNEL`.
+- [x] Add `get_recent_synthesis` tool to MCP server for AI clients to fetch latest report.
+
 ---
 
 ## Future Horizons (Prioritized)
@@ -65,9 +71,6 @@
 
 ### 1. Artifact Processing Pipeline *(Cognitive Layer — Multi-Modal)*
 Implement image OCR and audio transcription for the `artifacts` table. Trigger a secondary Edge Function when a new row has an image/audio MIME type. Store extracted text in the `text_content` column for vector search inclusion.
-
-### 5. Automated Synthesis *(Cognitive Layer — Intelligence)*
-Daily or weekly background aggregation of recent `system_insights` to provide high-level summaries of productivity, goal alignment, and emerging themes. Could run as a Supabase cron job or scheduled Edge Function.
 
 ### Deferred
 - Dashboard / reporting Edge Function
