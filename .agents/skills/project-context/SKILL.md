@@ -70,7 +70,7 @@ Slack Message (+ optional file attachments)
 
 ## 3. Current State (as of 2026-03-29)
 
-**All core phases (0–4) are complete and deployed.** The system is fully operational.
+**All core phases (0–5) are complete and deployed.** The system is fully operational.
 
 | Milestone | Status | Details |
 |-----------|--------|---------|
@@ -79,11 +79,12 @@ Slack Message (+ optional file attachments)
 | Phase 2: Relational Knowledge Graph schema | ✅ Complete | 9 tables + `match_memories` RPC |
 | Phase 3: AI extraction → multi-table routing | ✅ Complete | LLM JSON extraction, relational ingestion, MCP overhaul |
 | Phase 4: Threads, artifacts, active mentorship | ✅ Complete | Thread grouping, Slack file pipeline, `evaluateAgainstGoals` |
+| Phase 5: Resilient Async Ingestion | ✅ Complete | `pg_net` webhook, decoupled `process-memory` Edge Function, zero data loss |
 
 **What is NOT yet built** (see [roadmap.md](./roadmap.md) for details):
-1. Async/fallback ingestion (fault tolerance)
-2. Interactive MCP mutation tools (`complete_task`, `merge_entities`, etc.)
-3. Direct entity/task query tools (deterministic lookups)
+1. Interactive MCP mutation tools (`complete_task`, `merge_entities`, etc.)
+2. Direct entity/task query tools (deterministic lookups)
+3. `capture_memory` parity (threads and goal evaluation)
 4. Artifact processing pipeline (OCR, transcription)
 5. Automated synthesis (weekly digests)
 
@@ -110,7 +111,10 @@ my-ob1/
 │   │   ├── _shared/
 │   │   │   └── brain-engine.ts         # Shared AI: embeddings, metadata extraction, goal evaluation
 │   │   ├── ingest-thought/
-│   │   │   ├── index.ts                # Slack webhook → full graph ingestion pipeline
+│   │   │   ├── index.ts                # Slack webhook → fast sync insert
+│   │   │   └── deno.json
+│   │   ├── process-memory/
+│   │   │   ├── index.ts                # Async background job for LLM extraction and graph population
 │   │   │   └── deno.json
 │   │   └── open-brain-mcp/
 │   │       ├── index.ts                # MCP server (4 tools) via Hono + StreamableHTTPTransport
@@ -118,7 +122,8 @@ my-ob1/
 │   └── migrations/
 │       ├── 001_expanded_schema.sql     # Core graph schema (7 tables + RPC)
 │       ├── 002_threads.sql             # threads + memory_threads
-│       └── 003_delete_all_data.sql     # Data reset utility (TRUNCATE CASCADE)
+│       ├── 003_delete_all_data.sql     # Data reset utility (TRUNCATE CASCADE)
+│       └── 004_async_ingestion.sql     # Database webhook for async processing
 ├── mcp-server/                         # UNUSED — MCP lives in supabase/functions/open-brain-mcp
 ├── .agents/
 │   ├── skills/project-context/
