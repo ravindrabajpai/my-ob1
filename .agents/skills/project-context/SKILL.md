@@ -82,11 +82,11 @@ Slack Message (+ optional file attachments)
 | Phase 5: Resilient Async Ingestion | ✅ Complete | `pg_net` webhook, decoupled `process-memory` Edge Function, zero data loss |
 | Phase 6: Interactive MCP Tools | ✅ Complete | Mutation tools for tasks, entities, and goals + deduplication RPC |
 | Phase 7: Direct Entity & Task Queries | ✅ Complete | Deterministic structure lookup tools (`list_tasks`, `list_entities`, etc.) |
+| Phase 8: `capture_memory` Parity | ✅ Complete | Sync MCP tool with Slack ingestion (Threads & Mentorship logic) |
 
 **What is NOT yet built** (see [roadmap.md](./roadmap.md) for details):
-1. `capture_memory` parity (threads and goal evaluation)
-2. Artifact processing pipeline (OCR, transcription)
-3. Automated synthesis (weekly digests)
+1. Artifact processing pipeline (OCR, transcription)
+2. Automated synthesis (weekly digests)
 
 ---
 

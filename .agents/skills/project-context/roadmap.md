@@ -52,16 +52,18 @@
 ### Phase 7: Direct Entity & Task Queries
 - [x] Add deterministic MCP tools for structured lookups: `list_tasks`, `list_entities`, `list_threads`, `get_thread_context`
 
+### Phase 8: `capture_memory` Parity (Mentorship & Threads)
+- [x] Integrate `evaluateAgainstGoals` into the MCP tool to evaluate memories against active goals on ingestion.
+- [x] Upsert generated threads and link them via `memory_threads`.
+- [x] Expand MCP feedback response to include Thread counting and Insight surfacing.
+
 ---
 
 ## Future Horizons (Prioritized)
 
 > Ordered by impact, dependency, and implementation effort.
 
-### 1. `capture_memory` Parity *(MCP — Quick Win)*
-The MCP `capture_memory` tool currently doesn't link threads or evaluate against goals. Align it with the full Slack ingestion pipeline (steps 6e and 6g from [edge-functions.md](./edge-functions.md)).
-
-### 4. Artifact Processing Pipeline *(Cognitive Layer — Multi-Modal)*
+### 1. Artifact Processing Pipeline *(Cognitive Layer — Multi-Modal)*
 Implement image OCR and audio transcription for the `artifacts` table. Trigger a secondary Edge Function when a new row has an image/audio MIME type. Store extracted text in the `text_content` column for vector search inclusion.
 
 ### 5. Automated Synthesis *(Cognitive Layer — Intelligence)*

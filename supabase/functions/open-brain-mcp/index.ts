@@ -5,7 +5,7 @@ import { StreamableHTTPTransport } from "@hono/mcp";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
-import { getEmbedding, extractMetadata } from "../_shared/brain-engine.ts";
+import { getEmbedding, extractMetadata, evaluateAgainstGoals } from "../_shared/brain-engine.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -283,9 +283,41 @@ server.registerTool(
         }
       }
 
+      let linkedThreadsCount = 0;
+      if (Array.isArray(meta.associated_threads) && meta.associated_threads.length > 0) {
+        for (const threadName of meta.associated_threads) {
+          if (!threadName || typeof threadName !== "string") continue;
+          const { data: threadData } = await supabase.from("threads")
+            .upsert({ name: threadName }, { onConflict: "name" })
+            .select("id").single();
+          if (threadData?.id) {
+            await supabase.from("memory_threads").insert({
+              memory_id: memoryId,
+              thread_id: threadData.id
+            });
+            linkedThreadsCount++;
+          }
+        }
+      }
+
+      let insightText: string | null = null;
+      const { data: goalsData } = await supabase.from("goals_and_principles").select("content").eq("status", "active");
+      if (goalsData && goalsData.length > 0) {
+        const goalStrings = goalsData.map((g: any) => g.content);
+        insightText = await evaluateAgainstGoals(content, goalStrings);
+        if (insightText) {
+          await supabase.from("system_insights").insert({
+            memory_id: memoryId,
+            content: insightText,
+          });
+        }
+      }
+
       let confirmation = `Captured as ${meta.memory_type || "observation"}`;
       if (meta.extracted_tasks?.length) confirmation += ` | Tasks: ${meta.extracted_tasks.length}`;
       if (linkedEntitiesCount) confirmation += ` | Entities: ${linkedEntitiesCount}`;
+      if (linkedThreadsCount) confirmation += ` | Threads: ${linkedThreadsCount}`;
+      if (insightText) confirmation += ` | Insight: ${insightText}`;
 
       return {
         content: [{ type: "text" as const, text: confirmation }],

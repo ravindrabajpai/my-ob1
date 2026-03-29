@@ -135,7 +135,7 @@ Captured as *observation*
 ### Key Implementation Details
 
 - **`search_memories`** enriches results by joining `tasks` and `memory_entities → entities` for each match.
-- **`capture_memory`** replicates the core ingestion pipeline (steps 6a–6d) but without Slack-specific features (no file attachments, no goal evaluation, no thread linking).
+- **`capture_memory`** replicates the core ingestion pipeline entirely (metadata extraction, task/entity/thread population, and evaluation against goals).
 - Server uses `McpServer` from `@modelcontextprotocol/sdk` + `StreamableHTTPTransport` from `@hono/mcp`.
 
 ### Dependencies
@@ -170,5 +170,4 @@ npx supabase functions deploy open-brain-mcp --no-verify-jwt --workdir .
 
 | Gap | Impact |
 |-----|--------|
-| `capture_memory` doesn't link threads or evaluate goals | Parity gap with Slack ingestion |
 | No artifact processing (OCR/transcription) | `text_content` column in `artifacts` is always `null` |
