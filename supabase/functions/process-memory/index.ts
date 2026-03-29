@@ -141,9 +141,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
             }
         }
 
-        // 6. Active Mentorship: Evaluate against goals
+        // 6. Active Mentorship: Evaluate against active goals
         let insightText: string | null = null;
-        const { data: goalsData } = await supabase.from("goals_and_principles").select("content");
+        const { data: goalsData } = await supabase.from("goals_and_principles").select("content").eq("status", "active");
         if (goalsData && goalsData.length > 0) {
             const goalStrings = goalsData.map((g: any) => g.content);
             insightText = await evaluateAgainstGoals(messageText, goalStrings);

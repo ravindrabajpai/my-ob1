@@ -15,6 +15,7 @@ The database is **Supabase PostgreSQL** with the `pgvector` extension for semant
 | `002_threads.sql` | Thread grouping: `threads`, `memory_threads` |
 | `003_delete_all_data.sql` | Data reset utility (`TRUNCATE ... CASCADE` on all tables) |
 | `004_async_ingestion.sql` | Async ingestion: add `slack_metadata` to `memories`, `pg_net` webhook trigger for `process-memory` |
+| `005_mcp_mutations.sql` | MCP mutations: add `status` to `goals_and_principles`, create `merge_entities()` RPC |
 
 ---
 
@@ -119,6 +120,7 @@ User-defined strategic goals and operational principles. Populated via `goal:` /
 | `id` | UUID (PK) | Auto-generated |
 | `content` | TEXT NOT NULL | The goal or principle text |
 | `type` | TEXT NOT NULL | `Goal` or `Principle` |
+| `status` | TEXT | Default: `active`. Used for `archive_goal` MCP mutation. |
 | `created_at` | TIMESTAMPTZ | UTC default |
 
 #### `system_insights`
@@ -149,6 +151,17 @@ match_memories(
 ```
 
 **Algorithm:** Cosine distance (`<=>` operator), filtered by threshold, ordered by similarity.
+
+### `merge_entities`
+
+Safely deduplicates the Knowledge Graph by merging a source entity into a target entity, securely handling `memory_entities` unique constraint conflicts, and deleting the source entity.
+
+```sql
+merge_entities(
+    source_id uuid,
+    target_id uuid
+) RETURNS VOID
+```
 
 ---
 

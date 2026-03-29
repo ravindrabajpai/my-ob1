@@ -122,6 +122,15 @@ Captured as *observation*
 | `list_memories` | `limit?` (10), `type?`, `days?` | Chronological listing with optional type/date filters. |
 | `memory_stats` | *(none)* | Dashboard: total memories, tasks, entities, type breakdown, date range. |
 | `capture_memory` | `content` (string) | Full graph ingestion from any AI client — embedding, metadata extraction, task/entity population. |
+| `complete_task` | `task_id` (string/uuid) | Mark a task as completed. |
+| `update_task_deadline` | `task_id` (string), `due_date` (string) | Reschedule a task to a new due date. |
+| `merge_entities` | `source_entity_id` (string), `target_entity_id` (string) | Deduplicate Knowledge Graph by merging source into target securely. |
+| `create_goal` | `content` (string), `type` ("Goal" \| "Principle") | Add a new strategic goal or operational principle. |
+| `archive_goal` | `goal_id` (string) | Soft-delete a goal so it is no longer used for evaluating memories. |
+| `list_tasks` | `status?` (pending \| completed), `limit?` (20) | List and filter tasks by status. |
+| `list_entities` | `type?` (Person \| Project \| Concept), `limit?` (20) | List and filter entities by type. |
+| `list_threads` | `limit?` (20) | List all active work/life streams. |
+| `get_thread_context` | `thread_id` (string/uuid) | Retrieve all memories linked to a specific thread. |
 
 ### Key Implementation Details
 
@@ -162,5 +171,4 @@ npx supabase functions deploy open-brain-mcp --no-verify-jwt --workdir .
 | Gap | Impact |
 |-----|--------|
 | `capture_memory` doesn't link threads or evaluate goals | Parity gap with Slack ingestion |
-| No mutation tools in MCP | Can't complete tasks, merge entities, or manage goals from AI clients |
 | No artifact processing (OCR/transcription) | `text_content` column in `artifacts` is always `null` |

@@ -43,27 +43,22 @@
 - [x] Setup `pg_net` database webhook on `memories` insert to decouple Slack ingestion
 - [x] Create `process-memory` Edge Function for background LLM processing and graph population
 
+### Phase 6: Interactive MCP Tools
+- [x] Modify `goals_and_principles` table to add `status` column (migration `005_mcp_mutations.sql`)
+- [x] Create `merge_entities` RPC to securely handle Knowledge Graph node deduplication
+- [x] Add 5 mutation tools to `open-brain-mcp`: `complete_task`, `update_task_deadline`, `merge_entities`, `create_goal`, `archive_goal`
+- [x] Update Active Mentorship in `process-memory` to exclusively evaluate against `active` goals
+
+### Phase 7: Direct Entity & Task Queries
+- [x] Add deterministic MCP tools for structured lookups: `list_tasks`, `list_entities`, `list_threads`, `get_thread_context`
+
 ---
 
 ## Future Horizons (Prioritized)
 
 > Ordered by impact, dependency, and implementation effort.
 
-### 1. Interactive MCP Tools *(Execution Layer — High Value)*
-The MCP server is currently read-only (except `capture_memory`). Build mutation tools for active state management:
-- `complete_task` — Mark a task as done
-- `update_task_deadline` — Reschedule a task
-- `merge_entities` — Deduplicate knowledge graph nodes
-- `create_goal` / `archive_goal` — Lifecycle management for goals
-
-### 2. Direct Entity & Task Queries *(Execution Layer — Complement to #1)*
-Add deterministic MCP tools that bypass vector search for structured lookups:
-- `list_tasks` — Filter by status, due date, or linked entity
-- `list_entities` — Filter by type (Person, Project, Concept)
-- `list_threads` — Browse active work/life streams
-- `get_thread_context` — All memories linked to a specific thread
-
-### 3. `capture_memory` Parity *(MCP — Quick Win)*
+### 1. `capture_memory` Parity *(MCP — Quick Win)*
 The MCP `capture_memory` tool currently doesn't link threads or evaluate against goals. Align it with the full Slack ingestion pipeline (steps 6e and 6g from [edge-functions.md](./edge-functions.md)).
 
 ### 4. Artifact Processing Pipeline *(Cognitive Layer — Multi-Modal)*

@@ -80,13 +80,13 @@ Slack Message (+ optional file attachments)
 | Phase 3: AI extraction → multi-table routing | ✅ Complete | LLM JSON extraction, relational ingestion, MCP overhaul |
 | Phase 4: Threads, artifacts, active mentorship | ✅ Complete | Thread grouping, Slack file pipeline, `evaluateAgainstGoals` |
 | Phase 5: Resilient Async Ingestion | ✅ Complete | `pg_net` webhook, decoupled `process-memory` Edge Function, zero data loss |
+| Phase 6: Interactive MCP Tools | ✅ Complete | Mutation tools for tasks, entities, and goals + deduplication RPC |
+| Phase 7: Direct Entity & Task Queries | ✅ Complete | Deterministic structure lookup tools (`list_tasks`, `list_entities`, etc.) |
 
 **What is NOT yet built** (see [roadmap.md](./roadmap.md) for details):
-1. Interactive MCP mutation tools (`complete_task`, `merge_entities`, etc.)
-2. Direct entity/task query tools (deterministic lookups)
-3. `capture_memory` parity (threads and goal evaluation)
-4. Artifact processing pipeline (OCR, transcription)
-5. Automated synthesis (weekly digests)
+1. `capture_memory` parity (threads and goal evaluation)
+2. Artifact processing pipeline (OCR, transcription)
+3. Automated synthesis (weekly digests)
 
 ---
 
@@ -123,7 +123,8 @@ my-ob1/
 │       ├── 001_expanded_schema.sql     # Core graph schema (7 tables + RPC)
 │       ├── 002_threads.sql             # threads + memory_threads
 │       ├── 003_delete_all_data.sql     # Data reset utility (TRUNCATE CASCADE)
-│       └── 004_async_ingestion.sql     # Database webhook for async processing
+│       ├── 004_async_ingestion.sql     # Database webhook for async processing
+│       └── 005_mcp_mutations.sql       # RPCs and schema additions for MCP tools
 ├── mcp-server/                         # UNUSED — MCP lives in supabase/functions/open-brain-mcp
 ├── .agents/
 │   ├── skills/project-context/
