@@ -1,23 +1,65 @@
 name: "Feature Development Loop"
-description: "Standard workflow for developing features within the my-ob1 project while maintaining strict context synchronization."
+description: "Mandatory workflow for ALL code changes in the my-ob1 project. Enforces context sync, plan approval, and state updates. Referenced by .agents/rules/01-context-management.md — agents MUST follow this workflow without exception."
 
 steps:
-  - id: step_1_sync
-    name: "Context Synchronization"
-    action: "Read `.agents/skills/project-context/SKILL.md` and related state files."
-    instruction: "Analyze the requested feature against the current project state and schema. Identify any missing information or dependencies required to build the feature."
+  - id: step_0_preflight
+    name: "Pre-flight Context Health Check"
+    action: "Read and verify project context files."
+    instruction: |
+      1. Read `.agents/skills/project-context/SKILL.md` (root index).
+      2. Read whichever module files are relevant to the task:
+         - `schema-state.md` for any database work
+         - `edge-functions.md` for any Edge Function / MCP work
+         - `roadmap.md` for scoping or milestone work
+      3. Verify that what the context files describe matches the actual codebase.
+         If you find a discrepancy (e.g., a context file describes a table that doesn't exist
+         in the migrations, or a tool that isn't in the MCP server), STOP and report the
+         discrepancy to the user before proceeding.
+      4. Output a brief summary: "Context verified. Working from: [list files read]."
 
-  - id: step_2_plan
+  - id: step_1_plan
     name: "Formulate Plan & Seek Approval"
-    action: "Output a step-by-step technical implementation plan."
-    instruction: "Detail exactly which files will be created or modified (e.g., Supabase migrations, Edge Function TypeScript, MCP Python code). Pause and explicitly ask the user for approval to proceed. Do not execute code until approval is granted."
+    action: "Output a step-by-step technical implementation plan. STOP and WAIT."
+    instruction: |
+      1. Present the plan with:
+         - Exactly which files will be created or modified.
+         - What database changes (if any) will occur.
+         - Which context files will need updating after execution.
+      2. HARD STOP. Do NOT write any code.
+      3. Wait for the user to explicitly approve (e.g., "yes", "approved", "go ahead").
+      4. If the user requests changes to the plan, revise and re-present. Do NOT proceed
+         until you have unambiguous approval.
 
-  - id: step_3_execute
-    name: "Execute & Verify"
+  - id: step_2_execute
+    name: "Execute Approved Plan"
     action: "Write code, generate files, and run local verifications."
-    instruction: "Implement the approved plan using workspace tools. If building an Edge Function, ensure Deno syntax is correct. If modifying Python MCP code, ensure compatibility with the project environment."
+    instruction: |
+      1. Implement ONLY what was approved in step_1. Do not add unplanned features.
+      2. Edge Functions: use Deno/TypeScript syntax. Import from `esm.sh` or `jsr:` as appropriate.
+      3. Migrations: use standard PostgreSQL with Supabase conventions (uuid-ossp, pgvector).
+      4. Verify correctness by reviewing the written code. Run commands if applicable.
 
-  - id: step_4_update_state
-    name: "Update Context State"
-    action: "Modify `.agents/skills/project-context/` files."
-    instruction: "Summarize the architectural changes made during execution. Update `schema-state.md` if DB changes occurred, or `roadmap.md` if a phase milestone was reached. Confirm with the user that the context has been successfully synchronized."
+  - id: step_3_update_context
+    name: "Update Context State (MANDATORY)"
+    action: "Update `.agents/skills/project-context/` files to reflect all changes made."
+    instruction: |
+      This step is MANDATORY. You MUST NOT skip it. You MUST NOT consider the task complete
+      without completing this step.
+
+      1. Determine which context files are affected:
+         - Database schema changed → update `schema-state.md`
+         - Edge Function or MCP tool changed → update `edge-functions.md`
+         - Milestone completed or new future work identified → update `roadmap.md`
+         - Architectural shift or new module added → update `SKILL.md`
+      2. Update those files with accurate, current information.
+      3. Do NOT leave stale descriptions, outdated phase labels, or wrong tech references.
+
+  - id: step_4_completion
+    name: "Completion Confirmation"
+    action: "Confirm to the user that both code and context are synchronized."
+    instruction: |
+      1. Summarize what code was changed.
+      2. List which context files were updated and what changed in each.
+      3. Only THEN may you tell the user the task is complete.
+      4. If you realize you forgot to update a context file, go back to step_3 before
+         declaring completion.
