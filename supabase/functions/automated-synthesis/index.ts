@@ -37,14 +37,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
             supabase.from("memories").select("content, type, created_at").gte("created_at", startStr),
             supabase.from("tasks").select("description, status").eq("status", "pending"), // Want open tasks
             supabase.from("system_insights").select("content").gte("created_at", startStr),
-            supabase.from("goals_and_principles").select("content").eq("status", "active"),
+            supabase.from("taste_preferences").select("want, reject").eq("status", "active"),
         ]);
 
         if (!memories?.length && !tasks?.length) {
             return new Response("No sufficient data to synthesize.", { status: 200 });
         }
 
-        const reportContent = await generateSynthesis(
+        const { report: reportContent, usage } = await generateSynthesis(
             memories || [],
             tasks || [],
             insights || [],
@@ -59,7 +59,8 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const { error } = await supabase.from("synthesis_reports").insert({
             content: reportContent,
             date_range_start: startStr,
-            date_range_end: endStr
+            date_range_end: endStr,
+            cost_metrics: usage
         });
 
         if (error) {

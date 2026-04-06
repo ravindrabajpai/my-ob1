@@ -86,10 +86,13 @@ Slack Message (+ optional file attachments)
 | Phase 9: Automated Synthesis | ✅ Complete | Weekly digest extraction sent to Slack |
 | Phase 10: Core AI Skills Adaptation | ✅ Complete | Ported Auto-Capture, Workflow Observability, File Ingestion, Synthesis, and Agent Harnesses into `.agents/skills/` |
 | Phase 11: Artifact Processing Pipeline & RLS | ✅ Complete | OCR/multimodal process-artifact Edge Function, federated search capabilities, and Global database RLS lockdown. |
+| Phase 12: Harness Architecture Upgrades | ✅ Complete | Safety observability enhancements, MCP queues, tokens usage tracing. |
+| Phase 13: Taste Preferences | ✅ Complete | Explicit WANT/REJECT guardrails replacing general goals mapping. |
+| Phase 14: Standalone Automations | ✅ Complete | Proactive mentor Slack briefings and strict SHA-256 ingestion deduplication. |
+| Phase 15: Wisdom Verticals Framework | ✅ Complete | Modular, scalable domain extensions. First vertical: `learning` deployed. |
 
 **What is NOT yet built** (see [roadmap.md](./roadmap.md) for details):
-1. The "Taste Preferences" Migration
-
+*(All core phases and initial vertical infrastructure are deployed)*
 ---
 
 ## 4. Module Reference Index
@@ -101,6 +104,7 @@ Agents MUST read the relevant module file before working on that domain:
 | [schema-state.md](./schema-state.md) | Database | All 9 tables, columns, relationships, RPC functions, and security architecture |
 | [edge-functions.md](./edge-functions.md) | Ingestion & MCP | `ingest-thought` pipeline, `open-brain-mcp` tools, `brain-engine.ts` shared module |
 | [roadmap.md](./roadmap.md) | Planning | Completed phases and prioritized future horizons |
+| [how-to-add-wisdom-vertical.md](./how-to-add-wisdom-vertical.md) | Extensibility | SOP for adding new Domain-Specific Extensions to the graph |
 
 ---
 

@@ -11,13 +11,18 @@ The database is **Supabase PostgreSQL** with the `pgvector` extension for semant
 **Migrations applied:**
 | File | Contents |
 |------|----------|
-| `001_expanded_schema.sql` | Core graph: `memories`, `tasks`, `entities`, `memory_entities`, `artifacts`, `goals_and_principles`, `system_insights`, `match_memories()` RPC |
+| `001_expanded_schema.sql` | Core graph: `memories`, `tasks`, `entities`, `memory_entities`, `artifacts`, `system_insights`, `match_memories()` RPC |
 | `002_threads.sql` | Thread grouping: `threads`, `memory_threads` |
 | `003_delete_all_data.sql` | Data reset utility (`TRUNCATE ... CASCADE` on all tables) |
 | `004_async_ingestion.sql` | Async ingestion: add `slack_metadata` to `memories`, `pg_net` webhook trigger for `process-memory` |
-| `005_mcp_mutations.sql` | MCP mutations: add `status` to `goals_and_principles`, create `merge_entities()` RPC |
+| `005_mcp_mutations.sql` | MCP mutations: create `merge_entities()` RPC |
 | `006_automated_synthesis.sql` | `synthesis_reports` table for weekly digests and pg_cron script definition |
 | `007_artifact_processing_and_rls.sql` | Adds `embedding` to `artifacts`, `pg_net` process-artifact webhook, federated search for `match_memories`, and enables Global Row Level Security |
+| `008_harness_observability.sql` | Adds `processing_status`, `processing_error`, `cost_metrics` to `memories`, creates `mcp_operation_queue`. |
+| `009_taste_preferences_migration.sql` | Creates `taste_preferences` table with want/reject constraints, drops `goals_and_principles`. |
+| `010_content_hash_deduplication.sql` | Adds `content_hash` TEXT UNIQUE column to `memories` for strict SHA-256 deduplication. |
+| `011_proactive_briefings_cron.sql` | Creates a pg_cron schedule to trigger the `proactive-briefings` Edge Function. |
+| `012_wisdom_vertical_framework_and_learning.sql` | Creates `learning_topics`, `memory_learning_topics`, and `learning_milestones` tables for the Learning vertical. |
 
 ---
 
@@ -32,9 +37,13 @@ Central capture table. Every thought/observation enters here first.
 |--------|------|-------|
 | `id` | UUID (PK) | Auto-generated |
 | `content` | TEXT NOT NULL | Raw text of the captured thought |
+| `content_hash` | TEXT UNIQUE | SHA-256 fingerprint of content to prevent duplicate ingestion |
 | `embedding` | vector(1536) | OpenAI text-embedding-3-small output (nullable initially for async processing) |
 | `type` | TEXT | `observation`, `decision`, `idea`, `complaint`, `log` (default: `observation`) |
 | `slack_metadata` | JSONB | Stores Slack `channel`, `ts`, and `files` for async Edge Function replies |
+| `processing_status` | processing_status (ENUM) | `pending`, `completed`, `failed` (default: `pending`) |
+| `processing_error` | TEXT | Stores exception trace if extraction/ingestion fails |
+| `cost_metrics` | JSONB | Stores OpenAI inference costs (`total_tokens`, etc.) |
 | `created_at` | TIMESTAMPTZ | UTC default |
 
 #### `artifacts`
@@ -115,15 +124,18 @@ Join table: many-to-many link between memories and threads.
 
 ### The Mentor (Strategic Layer)
 
-#### `goals_and_principles`
-User-defined strategic goals and operational principles. Populated via `goal:` / `principle:` prefix in Slack.
+#### `taste_preferences`
+User-defined strict boundaries used as guardrails to evaluate thoughts against. Populated via `pref:`, `goal:`, or `principle:` prefixes in Slack.
 
 | Column | Type | Notes |
 |--------|------|-------|
 | `id` | UUID (PK) | Auto-generated |
-| `content` | TEXT NOT NULL | The goal or principle text |
-| `type` | TEXT NOT NULL | `Goal` or `Principle` |
-| `status` | TEXT | Default: `active`. Used for `archive_goal` MCP mutation. |
+| `preference_name` | TEXT NOT NULL | Short title |
+| `domain` | TEXT | E.g. general, family, work |
+| `reject` | TEXT NOT NULL | Explicit conditions for what is discouraged or invalid |
+| `want` | TEXT NOT NULL | Explicit conditions for what is desired or aligned |
+| `constraint_type` | TEXT NOT NULL | Context classification (Goal, Principle, Style, etc.) |
+| `status` | TEXT | Default: `active`. Used to soft-delete without losing historic context. |
 | `created_at` | TIMESTAMPTZ | UTC default |
 
 #### `system_insights`
@@ -134,6 +146,51 @@ AI-generated evaluations of memories against goals. Created by `evaluateAgainstG
 | `id` | UUID (PK) | Auto-generated |
 | `memory_id` | UUID (FK → memories) | CASCADE on delete |
 | `content` | TEXT NOT NULL | The strategic insight text |
+| `created_at` | TIMESTAMPTZ | UTC default |
+
+#### `mcp_operation_queue`
+Gated approval queue for highly privileged operations requested by AI agents.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID (PK) | Auto-generated |
+| `operation_type` | TEXT NOT NULL | Describes tool intended (`merge_entities`, `add_taste_preference`, etc) |
+| `payload` | JSONB NOT NULL | Arguments provided by the AI client |
+| `status` | TEXT NOT NULL | Default: `pending`. Can transition to `approved`, `rejected` |
+| `created_at` | TIMESTAMPTZ | UTC default |
+| `updated_at` | TIMESTAMPTZ | Last touch time |
+
+---
+
+### Extensions / Wisdom Verticals
+
+#### `learning_topics`
+Domain-specific extension mapping subjects/skills learned across the graph.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID (PK) | Auto-generated |
+| `topic_name` | TEXT NOT NULL UNIQUE | Name of the subject being studied |
+| `mastery_status` | TEXT | `learning`, `exploring`, `mastered`, `struggling` |
+| `created_at` | TIMESTAMPTZ | UTC default |
+
+#### `memory_learning_topics`
+Join table: many-to-many link between memories and learning topics.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `memory_id` | UUID (FK → memories) | CASCADE on delete |
+| `topic_id` | UUID (FK → learning_topics) | CASCADE on delete |
+
+#### `learning_milestones`
+Domain-specific achievements tied to learning topics and specific memories.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID (PK) | Auto-generated |
+| `topic_id` | UUID (FK → learning_topics) | CASCADE on delete |
+| `memory_id` | UUID (FK → memories) | CASCADE on delete |
+| `description` | TEXT NOT NULL | Contextual milestone description |
 | `created_at` | TIMESTAMPTZ | UTC default |
 
 ---
@@ -179,7 +236,7 @@ erDiagram
     memories ||--o{ memory_threads : "links"
     entities ||--o{ memory_entities : "links"
     threads ||--o{ memory_threads : "links"
-    goals_and_principles }o--|| system_insights : "evaluated by"
+    taste_preferences }o--|| system_insights : "evaluated by"
 ```
 
 ---

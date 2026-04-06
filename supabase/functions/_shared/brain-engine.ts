@@ -1,10 +1,12 @@
+import { activeVerticals } from "./verticals/index.ts";
+
 const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY")!;
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1";
 
 /**
  * Generates a vector embedding for a given text.
  */
-export async function getEmbedding(text: string): Promise<number[]> {
+export async function getEmbedding(text: string): Promise<{ embedding: number[], usage: any }> {
     const r = await fetch(`${OPENROUTER_BASE}/embeddings`, {
         method: "POST",
         headers: {
@@ -22,13 +24,19 @@ export async function getEmbedding(text: string): Promise<number[]> {
         throw new Error(`OpenRouter embeddings failed: ${r.status} ${msg}`);
     }
     const d = await r.json();
-    return d.data[0].embedding;
+    return { embedding: d.data[0].embedding, usage: d.usage || null };
 }
 
 /**
  * Uses an LLM to extract structured metadata from a thought.
  */
-export async function extractMetadata(text: string): Promise<Record<string, unknown>> {
+export async function extractMetadata(text: string): Promise<{ data: Record<string, unknown>, usage: any }> {
+    const verticalPrompts = activeVerticals.map(v => v.promptInjection).join("\n");
+    const verticalSchemas: Record<string, any> = {};
+    for (const v of activeVerticals) {
+        verticalSchemas[v.name] = v.schema;
+    }
+
     const r = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
         method: "POST",
         headers: {
@@ -51,8 +59,13 @@ export async function extractMetadata(text: string): Promise<Record<string, unkn
   "entities_detected": [
     { "name": "Exact proper noun", "type": "Person | Project | Concept" }
   ],
-  "strategic_alignment": "1 sentence tying this to broader goals if applicable, or null"
+  "strategic_alignment": "1 sentence tying this to broader goals if applicable, or null",
+  "wisdom_extensions": ${JSON.stringify(verticalSchemas, null, 2)}
 }
+
+Domain Extensions Instructions (Only populate if applicable):
+${verticalPrompts}
+
 Return only the raw JSON. If arrays are empty, return [].`,
                 },
                 { role: "user", content: text },
@@ -63,18 +76,20 @@ Return only the raw JSON. If arrays are empty, return [].`,
     if (!r.ok) throw new Error(`Metadata extraction failed: ${r.status}`);
     const d = await r.json();
     try {
-        return JSON.parse(d.choices[0].message.content);
+        return { data: JSON.parse(d.choices[0].message.content), usage: d.usage || null };
     } catch {
-        return { memory_type: "observation", extracted_tasks: [], associated_threads: [], entities_detected: [], strategic_alignment: null };
+        return { data: { memory_type: "observation", extracted_tasks: [], associated_threads: [], entities_detected: [], strategic_alignment: null, wisdom_extensions: {} }, usage: null };
     }
 }
 
 /**
- * Evaluates a memory against stored goals/principles and generates strategic insight.
- * Returns null if no goals exist or evaluation is not applicable.
+ * Evaluates a memory against stored taste preferences and generates strategic insight.
+ * Returns null if no preferences exist or evaluation is not applicable.
  */
-export async function evaluateAgainstGoals(memoryText: string, goals: string[]): Promise<string | null> {
-    if (!goals.length) return null;
+export async function evaluateAgainstTastePreferences(memoryText: string, preferences: { want: string, reject: string }[]): Promise<{ insight: string | null, usage: any }> {
+    if (!preferences.length) return { insight: null, usage: null };
+
+    const formattedPrefs = preferences.map((p, i) => `\nPreference ${i + 1}:\n- WANT: ${p.want}\n- REJECT: ${p.reject}`).join("\n");
 
     const r = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
         method: "POST",
@@ -87,28 +102,28 @@ export async function evaluateAgainstGoals(memoryText: string, goals: string[]):
             messages: [
                 {
                     role: "system",
-                    content: `You are a strategic mentor. The user has defined these goals and principles:\n${goals.map((g, i) => `${i + 1}. ${g}`).join("\n")}\n\nEvaluate the user's latest captured thought against these goals. If there is a meaningful connection, contradiction, or strategic insight, respond with a concise 1-2 sentence evaluation. If the thought is mundane or unrelated, respond with exactly "null" (no quotes).`,
+                    content: `You are a strategic mentor with strict taste preferences for this user. The user has defined these boundaries:\n${formattedPrefs}\n\nEvaluate the user's latest captured thought against these preferences. If there is a meaningful connection to a "WANT" or a violation of a "REJECT", respond with a concise 1-2 sentence strategic insight. If the thought is mundane or unrelated to these boundaries, respond with exactly "null" (no quotes). Minimize hallucinations by strictly adhering to the WANT/REJECT parameters.`,
                 },
                 { role: "user", content: memoryText },
             ],
         }),
     });
 
-    if (!r.ok) return null;
+    if (!r.ok) return { insight: null, usage: null };
     const d = await r.json();
     const insight = d.choices?.[0]?.message?.content?.trim();
-    if (!insight || insight === "null") return null;
-    return insight;
+    if (!insight || insight === "null") return { insight: null, usage: d.usage || null };
+    return { insight, usage: d.usage || null };
 }
 
-export async function generateSynthesis(memories: any[], tasks: any[], insights: any[], activeGoals: any[]): Promise<string | null> {
+export async function generateSynthesis(memories: any[], tasks: any[], insights: any[], activePreferences: any[]): Promise<{ report: string | null, usage: any }> {
     const prompt = `
 You are an executive summary assistant analyzing the user's weekly brain dump.
 
 Below is the raw data captured over the last week:
 ---
-ACTIVE GOALS:
-${activeGoals.map((g: any) => `- ${g.content}`).join("\n")}
+ACTIVE TASTE PREFERENCES:
+${activePreferences.map((p: any) => `- WANT: ${p.want} | REJECT: ${p.reject}`).join("\n")}
 
 NEW THOUGHTS/OBSERVATIONS:
 ${memories.map((m: any) => `- [${m.type}] ${m.content}`).join("\n")}
@@ -122,8 +137,8 @@ ${insights.map((i: any) => `- ${i.content}`).join("\n")}
 
 Write a concise, high-level "Weekly Synthesis Report" (in Markdown). Include:
 1. **Emerging Themes**: What patterns or recurring ideas are appearing in their thoughts?
-2. **Goal Alignment**: Are they actually moving towards their active goals, or getting distracted?
-3. **Action Priority**: What are the top 2-3 tasks they should tackle next week based on their goals and thoughts?
+2. **Preference Alignment**: Are they actually adhering to their active taste preferences, or getting distracted?
+3. **Action Priority**: What are the top 2-3 tasks they should tackle next week based on their preferences and thoughts?
 
 Be direct, insightful, and avoid unnecessary filler. Use modern, clean markdown formatting.
 `;
@@ -142,20 +157,20 @@ Be direct, insightful, and avoid unnecessary filler. Use modern, clean markdown 
             }),
         });
 
-        if (!response.ok) return null;
+        if (!response.ok) return { report: null, usage: null };
 
         const data = await response.json();
-        return data.choices[0]?.message?.content?.trim() || null;
+        return { report: data.choices[0]?.message?.content?.trim() || null, usage: data.usage || null };
     } catch (e) {
         console.error("Synthesis error:", e);
-        return null;
+        return { report: null, usage: null };
     }
 }
 
 /**
  * Uses an LLM with Vision to extract text and a descriptive summary from an image URL.
  */
-export async function extractImageText(imageUrl: string): Promise<string | null> {
+export async function extractImageText(imageUrl: string): Promise<{ text: string | null, usage: any }> {
     const r = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
         method: "POST",
         headers: {
@@ -178,8 +193,8 @@ export async function extractImageText(imageUrl: string): Promise<string | null>
 
     if (!r.ok) {
         console.error(`Vision extraction failed: ${r.status}`);
-        return null;
+        return { text: null, usage: null };
     }
     const d = await r.json();
-    return d.choices?.[0]?.message?.content?.trim() || null;
+    return { text: d.choices?.[0]?.message?.content?.trim() || null, usage: d.usage || null };
 }

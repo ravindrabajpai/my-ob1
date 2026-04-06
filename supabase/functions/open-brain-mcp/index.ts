@@ -5,7 +5,7 @@ import { StreamableHTTPTransport } from "@hono/mcp";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
-import { getEmbedding, extractMetadata, evaluateAgainstGoals } from "../_shared/brain-engine.ts";
+import { getEmbedding, extractMetadata, evaluateAgainstTastePreferences } from "../_shared/brain-engine.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -36,7 +36,7 @@ server.registerTool(
   },
   async ({ query, limit, threshold }) => {
     try {
-      const qEmb = await getEmbedding(query);
+      const { embedding: qEmb } = await getEmbedding(query);
       const { data, error } = await supabase.rpc("match_memories", {
         query_embedding: qEmb,
         match_threshold: threshold,
@@ -237,7 +237,11 @@ server.registerTool(
   },
   async ({ content }) => {
     try {
-      const [embedding, metadata] = await Promise.all([
+      const hashData = new TextEncoder().encode(content);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", hashData);
+      const contentHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+
+      const [{ embedding }, { data: metadata }] = await Promise.all([
         getEmbedding(content),
         extractMetadata(content),
       ]);
@@ -246,11 +250,15 @@ server.registerTool(
 
       const { data: memory, error: memoryError } = await supabase.from("memories").insert({
         content,
+        content_hash: contentHash,
         embedding,
         type: meta.memory_type || "observation",
       }).select("id").single();
 
       if (memoryError || !memory) {
+        if (memoryError?.code === "23505") { // UNIQUE_VIOLATION
+          return { content: [{ type: "text" as const, text: `Duplicate memory detected.` }] }; // Not returning isError: true so it doesn't break the agent's workflow heavily, but informs it. Wait, `isError: true` might be better explicitly.
+        }
         return { content: [{ type: "text" as const, text: `Memory insert error: ${memoryError?.message}` }], isError: true };
       }
 
@@ -301,10 +309,11 @@ server.registerTool(
       }
 
       let insightText: string | null = null;
-      const { data: goalsData } = await supabase.from("goals_and_principles").select("content").eq("status", "active");
-      if (goalsData && goalsData.length > 0) {
-        const goalStrings = goalsData.map((g: any) => g.content);
-        insightText = await evaluateAgainstGoals(content, goalStrings);
+      const { data: prefsData } = await supabase.from("taste_preferences").select("want, reject").eq("status", "active");
+      if (prefsData && prefsData.length > 0) {
+        const params = prefsData.map((p: any) => ({ want: p.want, reject: p.reject }));
+        const { insight } = await evaluateAgainstTastePreferences(content, params);
+        insightText = insight;
         if (insightText) {
           await supabase.from("system_insights").insert({
             memory_id: memoryId,
@@ -343,9 +352,12 @@ server.registerTool(
   },
   async ({ task_id }: { task_id: string }) => {
     try {
-      const { error } = await supabase.from("tasks").update({ status: "completed" }).eq("id", task_id);
+      const { error } = await supabase.from("mcp_operation_queue").insert({
+        operation_type: "complete_task",
+        payload: { task_id }
+      });
       if (error) throw error;
-      return { content: [{ type: "text" as const, text: `Task ${task_id} completed successfully.` }] };
+      return { content: [{ type: "text" as const, text: `Task completion request for ${task_id} added to the approval queue.` }] };
     } catch (err: unknown) {
       return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
     }
@@ -365,9 +377,12 @@ server.registerTool(
   },
   async ({ task_id, due_date }: { task_id: string, due_date: string }) => {
     try {
-      const { error } = await supabase.from("tasks").update({ due_date }).eq("id", task_id);
+      const { error } = await supabase.from("mcp_operation_queue").insert({
+        operation_type: "update_task_deadline",
+        payload: { task_id, due_date }
+      });
       if (error) throw error;
-      return { content: [{ type: "text" as const, text: `Task ${task_id} deadline updated to ${due_date}.` }] };
+      return { content: [{ type: "text" as const, text: `Task deadline update request for ${task_id} added to the approval queue.` }] };
     } catch (err: unknown) {
       return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
     }
@@ -387,60 +402,86 @@ server.registerTool(
   },
   async ({ source_entity_id, target_entity_id }: { source_entity_id: string, target_entity_id: string }) => {
     try {
-      const { error } = await supabase.rpc("merge_entities", {
-        source_id: source_entity_id,
-        target_id: target_entity_id
+      const { error } = await supabase.from("mcp_operation_queue").insert({
+        operation_type: "merge_entities",
+        payload: { source_entity_id, target_entity_id }
       });
       if (error) throw error;
-      return { content: [{ type: "text" as const, text: `Successfully merged entity ${source_entity_id} into ${target_entity_id}.` }] };
+      return { content: [{ type: "text" as const, text: `Entity merge request for ${source_entity_id} into ${target_entity_id} added to the approval queue.` }] };
     } catch (err: unknown) {
       return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
     }
   }
 );
 
-// Tool 8: Create Goal/Principle
+// Tool 8: Add Taste Preference
 server.registerTool(
-  "create_goal",
+  "add_taste_preference",
   {
-    title: "Create Goal or Principle",
-    description: "Add a new strategic goal or operational principle to the system for future memory evaluation.",
+    title: "Add Taste Preference",
+    description: "Add a new strict taste preference for evaluating incoming thoughts.",
     inputSchema: {
-      content: z.string().describe("The text of the goal or principle"),
-      type: z.enum(["Goal", "Principle"]).describe("Whether this is a Goal or a Principle"),
+      preference_name: z.string().describe("Short name for the preference"),
+      domain: z.string().describe("Domain of the constraint (e.g. general, work, family)"),
+      want: z.string().describe("Explicitly what to look out for and align with"),
+      reject: z.string().describe("Explicitly what to reject, flag, or call out"),
+      constraint_type: z.string().describe("Type of constraint (e.g. Goal, Principle, Style)"),
     },
   },
-  async ({ content, type }: { content: string, type: string }) => {
+  async ({ preference_name, domain, want, reject, constraint_type }: { preference_name: string, domain: string, want: string, reject: string, constraint_type: string }) => {
     try {
-      const { data, error } = await supabase.from("goals_and_principles").insert({
-        content,
-        type,
-        status: "active"
-      }).select("id").single();
-
+      const { error } = await supabase.from("mcp_operation_queue").insert({
+        operation_type: "add_taste_preference",
+        payload: { preference_name, domain, want, reject, constraint_type }
+      });
       if (error) throw error;
-      return { content: [{ type: "text" as const, text: `Created ${type} with ID ${data.id}` }] };
+      return { content: [{ type: "text" as const, text: `Taste preference creation request added to the approval queue.` }] };
     } catch (err: unknown) {
       return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
     }
   }
 );
 
-// Tool 9: Archive Goal
+// Tool 9: Remove Taste Preference
 server.registerTool(
-  "archive_goal",
+  "remove_taste_preference",
   {
-    title: "Archive Goal",
-    description: "Soft-delete a goal so it is no longer used for evaluating incoming thoughts.",
+    title: "Remove Taste Preference",
+    description: "Soft-delete a taste preference so it is no longer used for evaluating incoming thoughts.",
     inputSchema: {
-      goal_id: z.string().uuid().describe("The UUID of the goal to archive"),
+      preference_id: z.string().uuid().describe("The UUID of the taste preference to remove"),
     },
   },
-  async ({ goal_id }: { goal_id: string }) => {
+  async ({ preference_id }: { preference_id: string }) => {
     try {
-      const { error } = await supabase.from("goals_and_principles").update({ status: "archived" }).eq("id", goal_id);
+      const { error } = await supabase.from("mcp_operation_queue").insert({
+        operation_type: "remove_taste_preference",
+        payload: { preference_id }
+      });
       if (error) throw error;
-      return { content: [{ type: "text" as const, text: `Goal ${goal_id} archived successfully.` }] };
+      return { content: [{ type: "text" as const, text: `Taste preference removal request for ${preference_id} added to the approval queue.` }] };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// Tool 9b: List Taste Preferences
+server.registerTool(
+  "list_taste_preferences",
+  {
+    title: "List Taste Preferences",
+    description: "List active taste preferences that act as guardrails for the system.",
+    inputSchema: {},
+  },
+  async () => {
+    try {
+      const { data, error } = await supabase.from("taste_preferences").select("*").eq("status", "active");
+      if (error) throw error;
+      if (!data?.length) return { content: [{ type: "text" as const, text: "No active taste preferences found." }] };
+
+      const output = data.map((p: any) => `- [${p.constraint_type}] ${p.preference_name} (ID: ${p.id})\n  WANT: ${p.want}\n  REJECT: ${p.reject}`).join("\n\n");
+      return { content: [{ type: "text" as const, text: `Active Taste Preferences:\n\n${output}` }] };
     } catch (err: unknown) {
       return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
     }
@@ -586,6 +627,80 @@ server.registerTool(
       }).join("\n\n");
 
       return { content: [{ type: "text" as const, text: output }] };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// Tool 15: List Learning Topics
+server.registerTool(
+  "list_learning_topics",
+  {
+    title: "List Learning Topics",
+    description: "List topics from the Learning Wisdom Vertical.",
+    inputSchema: {
+      limit: z.number().optional().default(20),
+    },
+  },
+  async ({ limit }: { limit?: number }) => {
+    try {
+      const { data, error } = await supabase.from("learning_topics").select("id, topic_name, mastery_status").order("topic_name").limit(limit || 20);
+      if (error) throw error;
+      if (!data?.length) return { content: [{ type: "text" as const, text: "No learning topics found." }] };
+
+      const output = data.map((t: any) => `- ${t.topic_name} [${t.mastery_status}] (ID: ${t.id})`).join("\n");
+      return { content: [{ type: "text" as const, text: `Learning Topics:\n${output}` }] };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// Tool 16: Add Learning Milestone
+server.registerTool(
+  "add_learning_milestone",
+  {
+    title: "Add Learning Milestone",
+    description: "Add a new milestone to an existing learning topic. Handled via queue.",
+    inputSchema: {
+      topic_id: z.string().uuid().describe("The UUID of the learning topic"),
+      description: z.string().describe("Description of the milestone reached"),
+    },
+  },
+  async ({ topic_id, description }: { topic_id: string, description: string }) => {
+    try {
+      const { error } = await supabase.from("mcp_operation_queue").insert({
+        operation_type: "add_learning_milestone",
+        payload: { topic_id, description }
+      });
+      if (error) throw error;
+      return { content: [{ type: "text" as const, text: `Request to add learning milestone added to the approval queue.` }] };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// Tool 17: Update Mastery Status
+server.registerTool(
+  "update_mastery_status",
+  {
+    title: "Update Mastery Status",
+    description: "Update the mastery status of a learning topic. Handled via queue.",
+    inputSchema: {
+      topic_id: z.string().uuid().describe("The UUID of the learning topic"),
+      status: z.string().describe("The new status (learning, exploring, mastered, struggling)"),
+    },
+  },
+  async ({ topic_id, status }: { topic_id: string, status: string }) => {
+    try {
+      const { error } = await supabase.from("mcp_operation_queue").insert({
+        operation_type: "update_mastery_status",
+        payload: { topic_id, status }
+      });
+      if (error) throw error;
+      return { content: [{ type: "text" as const, text: `Request to update mastery status added to the approval queue.` }] };
     } catch (err: unknown) {
       return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
     }

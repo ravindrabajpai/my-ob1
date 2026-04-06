@@ -24,7 +24,8 @@ export default async function handler(req: Request): Promise<Response> {
         // Decide extraction strategy based on mime_type
         if (mime_type && mime_type.startsWith("image/")) {
             console.log(`Extracting text from image artifact: ${id}`);
-            textContent = await extractImageText(url);
+            const { text } = await extractImageText(url);
+            textContent = text;
         } else if (mime_type && mime_type.startsWith("text/")) {
             console.log(`Extracting text from text artifact: ${id}`);
             try {
@@ -49,7 +50,7 @@ export default async function handler(req: Request): Promise<Response> {
         }
 
         console.log(`Generating embedding for artifact text (length: ${textContent.length})`);
-        const embedding = await getEmbedding(textContent);
+        const { embedding } = await getEmbedding(textContent);
 
         console.log("Updating artifact row in database...");
         const { error } = await supabase

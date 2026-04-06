@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getEmbedding, extractMetadata, evaluateAgainstGoals } from "../_shared/brain-engine.ts";
+import { getEmbedding, extractMetadata, evaluateAgainstTastePreferences } from "../_shared/brain-engine.ts";
+import { activeVerticals } from "../_shared/verticals/index.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -31,10 +32,25 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const messageTs = slackMetadata.ts;
         const files = slackMetadata.files || [];
 
-        const [embedding, metadata] = await Promise.all([
+        let totalTokens = 0;
+        let promptTokens = 0;
+        let compTokens = 0;
+
+        const addUsage = (u: any) => {
+            if (u) {
+                totalTokens += u.total_tokens || 0;
+                promptTokens += u.prompt_tokens || 0;
+                compTokens += u.completion_tokens || 0;
+            }
+        };
+
+        const [{ embedding, usage: embUsage }, { data: metadata, usage: metaUsage }] = await Promise.all([
             getEmbedding(messageText),
             extractMetadata(messageText),
         ]);
+
+        addUsage(embUsage);
+        addUsage(metaUsage);
 
         const meta = metadata as Record<string, any>;
 
@@ -47,11 +63,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
             .eq("id", memoryId);
 
         if (memoryError) {
-            console.error("Supabase memory update error:", memoryError);
-            if (channel && messageTs) {
-                await replyInSlack(channel, messageTs, `Failed to process: ${memoryError.message}`);
-            }
-            return new Response("error", { status: 500 });
+            throw new Error(`Supabase memory update error: ${memoryError.message}`);
         }
 
         // 2. Insert Tasks
@@ -108,6 +120,19 @@ Deno.serve(async (req: Request): Promise<Response> => {
             }
         }
 
+        // 4.5 Process Wisdom Verticals
+        if (meta.wisdom_extensions) {
+            for (const vertical of activeVerticals) {
+                if (meta.wisdom_extensions[vertical.name]) {
+                    try {
+                        await vertical.process(memoryId, meta.wisdom_extensions[vertical.name], supabase);
+                    } catch (vErr) {
+                        console.error(`Error processing vertical ${vertical.name}:`, vErr);
+                    }
+                }
+            }
+        }
+
         // 5. Handle Slack file attachments -> artifacts
         let artifactCount = 0;
         if (files.length > 0) {
@@ -141,12 +166,14 @@ Deno.serve(async (req: Request): Promise<Response> => {
             }
         }
 
-        // 6. Active Mentorship: Evaluate against active goals
+        // 6. Active Mentorship: Evaluate against active taste preferences
         let insightText: string | null = null;
-        const { data: goalsData } = await supabase.from("goals_and_principles").select("content").eq("status", "active");
-        if (goalsData && goalsData.length > 0) {
-            const goalStrings = goalsData.map((g: any) => g.content);
-            insightText = await evaluateAgainstGoals(messageText, goalStrings);
+        const { data: prefsData } = await supabase.from("taste_preferences").select("want, reject").eq("status", "active");
+        if (prefsData && prefsData.length > 0) {
+            const params = prefsData.map((p: any) => ({ want: p.want, reject: p.reject }));
+            const { insight, usage: insightUsage } = await evaluateAgainstTastePreferences(messageText, params);
+            insightText = insight;
+            addUsage(insightUsage);
             if (insightText) {
                 await supabase.from("system_insights").insert({
                     memory_id: memoryId,
@@ -154,6 +181,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 });
             }
         }
+
+        // Final updates for observability
+        await supabase.from("memories").update({
+            processing_status: "completed",
+            cost_metrics: {
+                total_tokens: totalTokens,
+                prompt_tokens: promptTokens,
+                completion_tokens: compTokens
+            }
+        }).eq("id", memoryId);
 
         // Format Slack confirmation
         if (channel && messageTs) {
@@ -164,13 +201,33 @@ Deno.serve(async (req: Request): Promise<Response> => {
             if (artifactCount > 0) confirmation += `\n📎 Files: ${artifactCount} saved`;
             if (insightText) confirmation += `\n🧠 Insight: ${insightText}`;
             if (meta.strategic_alignment) confirmation += `\n🧭 Alignment: ${meta.strategic_alignment}`;
+            confirmation += `\n💸 Cost: ${totalTokens} tokens`;
 
             await replyInSlack(channel, messageTs, confirmation);
         }
 
         return new Response("ok", { status: 200 });
-    } catch (err) {
+    } catch (err: any) {
         console.error("Function error:", err);
+        try {
+            const body = await req.json().catch(() => ({}));
+            const memoryId = body?.record?.id;
+            const channel = body?.record?.slack_metadata?.channel;
+            const ts = body?.record?.slack_metadata?.ts;
+
+            if (memoryId) {
+                await supabase.from("memories").update({
+                    processing_status: "failed",
+                    processing_error: err.message || "Unknown error"
+                }).eq("id", memoryId);
+            }
+
+            if (channel) {
+                await replyInSlack(channel, ts || "", `⚠️ Failed to process memory: ${err.message}`);
+            }
+        } catch (alertErr) {
+            console.error("Failed to send alert", alertErr);
+        }
         return new Response("error", { status: 500 });
     }
 });
