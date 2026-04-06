@@ -17,6 +17,7 @@ The database is **Supabase PostgreSQL** with the `pgvector` extension for semant
 | `004_async_ingestion.sql` | Async ingestion: add `slack_metadata` to `memories`, `pg_net` webhook trigger for `process-memory` |
 | `005_mcp_mutations.sql` | MCP mutations: add `status` to `goals_and_principles`, create `merge_entities()` RPC |
 | `006_automated_synthesis.sql` | `synthesis_reports` table for weekly digests and pg_cron script definition |
+| `007_artifact_processing_and_rls.sql` | Adds `embedding` to `artifacts`, `pg_net` process-artifact webhook, federated search for `match_memories`, and enables Global Row Level Security |
 
 ---
 
@@ -45,7 +46,8 @@ Multi-modal file attachments linked to a memory. Files are stored in Supabase St
 | `memory_id` | UUID (FK → memories) | CASCADE on delete |
 | `url` | TEXT NOT NULL | Supabase Storage public URL |
 | `mime_type` | TEXT | e.g., `image/png`, `application/pdf` |
-| `text_content` | TEXT | Reserved for OCR/transcription (currently always `null`) |
+| `text_content` | TEXT | Populated by OCR/transcription via `process-artifact` |
+| `embedding` | vector(1536) | Populated by `process-artifact` based on `text_content` |
 | `created_at` | TIMESTAMPTZ | UTC default |
 
 ---
@@ -140,7 +142,7 @@ AI-generated evaluations of memories against goals. Created by `evaluateAgainstG
 
 ### `match_memories`
 
-Semantic vector search over the `memories` table.
+Semantic federated vector search over the `memories` and `artifacts` tables.
 
 ```sql
 match_memories(
@@ -151,7 +153,7 @@ match_memories(
 ) RETURNS TABLE (id uuid, content text, type text, similarity float, created_at timestamptz)
 ```
 
-**Algorithm:** Cosine distance (`<=>` operator), filtered by threshold, ordered by similarity.
+**Algorithm:** Cosine distance (`<=>` operator) across both memories and artifacts. When an artifact matches, it returns its parent memory. The system groups by `memory_id` and takes the maximum similarity score among the base memory and all its attachments, ordered by similarity.
 
 ### `merge_entities`
 
@@ -188,7 +190,8 @@ erDiagram
 |-------|-----------|
 | **Slack → `ingest-thought`** | HMAC-SHA256 signature verification via `SLACK_SIGNING_SECRET` + 5-min replay protection |
 | **AI Client → `open-brain-mcp`** | `MCP_ACCESS_KEY` via `x-brain-key` header or `?key=` query param |
-| **Supabase JWT** | Disabled (`--no-verify-jwt`) — application-level auth used instead |
+| **Data API → PostgreSQL** | Global Row-Level Security (RLS) is ENFORCED on all tables. External REST/GraphQL queries are blocked. |
+| **Supabase JWT** | Disabled (`--no-verify-jwt`) — application-level auth and secure `SUPABASE_SERVICE_ROLE_KEY` (for backend webhooks) used instead |
 
 ---
 

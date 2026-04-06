@@ -64,7 +64,7 @@ Slack Message (+ optional file attachments)
 **Key tech decisions:**
 - **All server-side code is Deno/TypeScript** — both Edge Functions run on Supabase's Deno runtime.
 - **No Python backend** — the `mcp-server/` directory exists but is unused; the MCP server is the `open-brain-mcp` Edge Function.
-- **Security** — Slack signature verification (HMAC-SHA256 + replay protection) for ingestion; `MCP_ACCESS_KEY` for the MCP endpoint. Both deployed with `--no-verify-jwt`.
+- **Security** — Global Row-Level Security (RLS) is enabled on all tables natively, blocking REST API access. Slack signature verification (HMAC-SHA256 + replay protection) secures ingestion; `MCP_ACCESS_KEY` secures the MCP endpoint. Both deployed with `--no-verify-jwt` as auth is handled application-side and via `service_role` keys.
 
 ---
 
@@ -85,9 +85,10 @@ Slack Message (+ optional file attachments)
 | Phase 8: `capture_memory` Parity | ✅ Complete | Sync MCP tool with Slack ingestion (Threads & Mentorship logic) |
 | Phase 9: Automated Synthesis | ✅ Complete | Weekly digest extraction sent to Slack |
 | Phase 10: Core AI Skills Adaptation | ✅ Complete | Ported Auto-Capture, Workflow Observability, File Ingestion, Synthesis, and Agent Harnesses into `.agents/skills/` |
+| Phase 11: Artifact Processing Pipeline & RLS | ✅ Complete | OCR/multimodal process-artifact Edge Function, federated search capabilities, and Global database RLS lockdown. |
 
 **What is NOT yet built** (see [roadmap.md](./roadmap.md) for details):
-1. Artifact processing pipeline (OCR, transcription)
+1. The "Taste Preferences" Migration
 
 ---
 
@@ -120,6 +121,9 @@ my-ob1/
 │   │   ├── automated-synthesis/
 │   │   │   ├── index.ts                # Scheduled job (generate and push weekly digest to Slack)
 │   │   │   └── deno.json
+│   │   ├── process-artifact/
+│   │   │   ├── index.ts                # Async background job for multi-modal OCR text extraction
+│   │   │   └── deno.json
 │   │   └── open-brain-mcp/
 │   │       ├── index.ts                # MCP server (14 tools) via Hono + StreamableHTTPTransport
 │   │       └── deno.json
@@ -129,7 +133,8 @@ my-ob1/
 │       ├── 003_delete_all_data.sql     # Data reset utility (TRUNCATE CASCADE)
 │       ├── 004_async_ingestion.sql     # Database webhook for async processing
 │       ├── 005_mcp_mutations.sql       # RPCs and schema additions for MCP tools
-│       └── 006_automated_synthesis.sql # synthesis_reports table for weekly digests
+│       ├── 006_automated_synthesis.sql # synthesis_reports table for weekly digests
+│       └── 007_artifact_processing_and_rls.sql # Vector embedding for artifacts, pg_net webhook, and global RLS lockdown
 ├── mcp-server/                         # UNUSED — MCP lives in supabase/functions/open-brain-mcp
 ├── .agents/
 │   ├── skills/

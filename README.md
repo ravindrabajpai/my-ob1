@@ -2,7 +2,7 @@
 
 An AI-powered second brain that captures your raw thoughts from Slack, extracts structured knowledge (tasks, entities, threads), and evaluates them against your long-term goals — all stored in a relational Knowledge Graph on Supabase.
 
-> **Built on the shoulders of [Nate Jones' OB1](https://github.com/NateBJones-Projects/OB1).** This project was inspired by and bootstrapped from Nate's original Open Brain concept and his [YouTube walkthrough](https://www.youtube.com/watch?v=2JiMmye2ezg&t=780s). It has since been extended with a multi-table Knowledge Graph, active mentorship, and thread-based context grouping.
+> **Built on the shoulders of [Nate Jones' OB1](https://github.com/NateBJones-Projects/OB1).** This project was inspired by and bootstrapped from Nate's original Open Brain concept and his [YouTube walkthrough](https://www.youtube.com/watch?v=2JiMmye2ezg&t=780s). It has since been extended with a multi-table Knowledge Graph, active mentorship, automated synthesis, multi-modal capabilities, and thread-based context grouping.
 
 **Open Brain acts as three things at once:**
 - **📦 A Planner** — Automatically extracts tasks with deadlines from your stream of consciousness.
@@ -13,18 +13,20 @@ An AI-powered second brain that captures your raw thoughts from Slack, extracts 
 
 ## Architecture
 
-```
-Slack Message
+```text
+Slack Message (+ optional file attachments)
      │
      ▼
-┌─────────────────────┐
-│  ingest-thought      │  (Supabase Edge Function)
-│  • Verify Slack sig  │
-│  • Extract metadata  │◄── brain-engine.ts (OpenRouter GPT-4o-mini)
-│  • Generate embed    │◄── brain-engine.ts (text-embedding-3-small)
-│  • Route to tables   │
-│  • Evaluate goals    │◄── brain-engine.ts (evaluateAgainstGoals)
-└────────┬────────────┘
+┌─────────────────────────┐
+│  ingest-thought          │  Supabase Edge Function (Deno/TS)
+│  • Slack signature auth  │
+│  • goal:/principle: route│
+│  • LLM metadata extract  │◄── brain-engine.ts (GPT-4o-mini via OpenRouter)
+│  • Vector embedding      │◄── brain-engine.ts (text-embedding-3-small)
+│  • Multi-table routing   │
+│  • File → Storage upload │
+│  • Goal evaluation       │
+└────────┬────────────────┘
          │
          ▼
 ┌──────────────────────────────────────────────────┐
@@ -33,23 +35,31 @@ Slack Message
 │  memories ──┬── tasks                            │
 │             ├── memory_entities ── entities       │
 │             ├── memory_threads ── threads         │
-│             ├── artifacts (file storage)          │
-│             └── system_insights                  │
+│             ├── artifacts (Supabase Storage)      │
+│             ├── system_insights                  │
+│             └── synthesis_reports                │
 │                                                  │
 │  goals_and_principles (mentor baseline)          │
+│  match_memories() RPC (Federated vector search)  │
 └──────────────────────────────────────────────────┘
          │
          ▼
-┌─────────────────────┐
-│  open-brain-mcp      │  (Supabase Edge Function)
-│  • search_memories   │  Semantic vector search
-│  • list_memories     │  Filtered listing
-│  • memory_stats      │  Dashboard stats
-│  • capture_memory    │  Direct ingestion from AI
-└─────────────────────┘
+┌─────────────────────────┐
+│  open-brain-mcp          │  Supabase Edge Function (Deno/TS)
+│  • search_memories       │  Semantic vector search + entity/task joins
+│  • list_memories         │  Filtered chronological listing
+│  • memory_stats          │  Dashboard stats (memories, tasks, entities)
+│  • capture_memory        │  Direct graph ingestion from any AI client
+│  • ...and 10 more tools  │
+└─────────────────────────┘
          │
          ▼
    Any MCP Client (Claude, Antigravity, etc.)
+
+Background Processing Edge Functions:
+• process-memory: Async LLM extraction and graph ingestion (triggered via pg_net).
+• process-artifact: OCR/Transcription for Multi-Modal attachments (triggered via pg_net).
+• automated-synthesis: Weekly digest generation and Slack reporting.
 ```
 
 ---
@@ -87,18 +97,19 @@ npx supabase secrets set \
 npx supabase db push --workdir .
 ```
 
-This applies two migrations:
-- `001_expanded_schema.sql` — Creates `memories`, `tasks`, `entities`, `memory_entities`, `artifacts`, `goals_and_principles`, `system_insights`, and the `match_memories` RPC.
-- `002_threads.sql` — Creates `threads` and `memory_threads`.
+This applies migrations up to `007_artifact_processing_and_rls.sql`, establishing 10 tables, federated search RPCs, pg_net webhooks, and ensuring Global Row-Level Security (RLS) is enforced.
 
 ### 4. Deploy Edge Functions
 
 ```bash
 npx supabase functions deploy ingest-thought --no-verify-jwt --workdir .
+npx supabase functions deploy process-memory --no-verify-jwt --workdir .
+npx supabase functions deploy process-artifact --no-verify-jwt --workdir .
+npx supabase functions deploy automated-synthesis --no-verify-jwt --workdir .
 npx supabase functions deploy open-brain-mcp --no-verify-jwt --workdir .
 ```
 
-> **Why `--no-verify-jwt`?** Slack and MCP clients don't send Supabase JWTs. Security is handled at the application level via Slack Signing Secret verification and `MCP_ACCESS_KEY`.
+> **Why `--no-verify-jwt`?** Slack, internal webhooks, and MCP clients don't send Supabase Auth JWTs. Security is handled at the application level via Slack Signing Secret verification, the `SUPABASE_SERVICE_ROLE_KEY` for internal webhooks, and the `MCP_ACCESS_KEY`.
 
 ### 5. Configure Slack
 
@@ -107,9 +118,8 @@ npx supabase functions deploy open-brain-mcp --no-verify-jwt --workdir .
 3. Subscribe to bot events: `message.channels`
 4. Invite your bot to your capture channel.
 
-### 6. (Optional) Create a Storage Bucket
+### 6. Create Artifacts Storage Bucket
 
-If you want to capture file attachments from Slack:
 1. Go to Supabase Dashboard → **Storage** → **New Bucket**
 2. Name it `artifacts`
 3. Set it to public (or configure RLS as needed)
@@ -119,7 +129,7 @@ If you want to capture file attachments from Slack:
 ## Usage
 
 ### Capturing Thoughts
-Just type naturally in your Slack channel:
+Just type naturally in your Slack channel, optionally attaching images/files:
 ```
 Had a great meeting with Sarah about Project Phoenix. Need to draft the budget proposal by Friday.
 ```
@@ -130,6 +140,7 @@ Captured as *observation*
 🎯 Tasks: 1
 🔗 Entities: 2 linked
 🧵 Threads: 1
+📎 Files: 1 saved
 🧭 Alignment: Relates to project management goals
 🧠 Insight: This directly supports your Q2 delivery milestone.
 ```
@@ -149,7 +160,7 @@ Connect any MCP-compatible AI client using:
 https://YOUR_PROJECT_REF.supabase.co/functions/v1/open-brain-mcp?key=YOUR_MCP_ACCESS_KEY
 ```
 
-Available tools: `search_memories`, `list_memories`, `memory_stats`, `capture_memory`.
+Available tools support searching via semantic matching, querying graph entities, completing tasks, and directly ingesting data through AI.
 
 ---
 
@@ -162,19 +173,20 @@ open-brain/
 │   │   ├── _shared/
 │   │   │   └── brain-engine.ts        # Shared AI: embeddings, metadata extraction, goal evaluation
 │   │   ├── ingest-thought/
-│   │   │   ├── index.ts               # Slack webhook → multi-table graph ingestion
-│   │   │   └── deno.json
-│   │   └── open-brain-mcp/
-│   │       ├── index.ts               # MCP server with 4 semantic tools
-│   │       └── deno.json
+│   │   ├── process-memory/            # LLM ingestion background worker
+│   │   ├── process-artifact/          # Multi-Modal extraction background worker
+│   │   ├── automated-synthesis/       # Weekly digest cron worker
+│   │   └── open-brain-mcp/            # MCP server with 14 semantic and mutation tools
 │   └── migrations/
-│       ├── 001_expanded_schema.sql    # Core graph schema (9 tables + RPC)
-│       └── 002_threads.sql           # Threads & memory_threads
+│       ├── 001..007...sql             # Series of migrations building out the Knowledge Graph
 ├── .agents/
-│   └── skills/project-context/
-│       ├── SKILL.md                   # Agent context loading instructions
-│       ├── schema-state.md            # Live database schema reference
-│       └── roadmap.md                 # Project roadmap
+│   ├── skills/                        # Standalone specific agent skills
+│   │   └── project-context/
+│   │       ├── SKILL.md               # Root knowledge graph index
+│   │       ├── schema-state.md        # Live database schema reference
+│   │       ├── edge-functions.md      # Edge function specifications
+│   │       └── roadmap.md             # Project roadmap
+│   └── workflows/
 ├── README.md
 ├── RELEASE_NOTES.md
 └── .key.txt                           # Credential tracker (do NOT commit)
@@ -192,9 +204,10 @@ open-brain/
 | `memory_entities` | Links memories ↔ entities |
 | `threads` | Active work/life streams |
 | `memory_threads` | Links memories ↔ threads |
-| `artifacts` | File attachments (images, docs) from Slack |
+| `artifacts` | File attachments (images, docs) with OCR text & embeddings |
 | `goals_and_principles` | User-defined strategic goals and principles |
 | `system_insights` | AI-generated evaluations against goals |
+| `synthesis_reports` | AI-generated weekly executive summaries |
 
 ---
 
@@ -204,7 +217,8 @@ open-brain/
 |-------|-----------|
 | Slack → `ingest-thought` | HMAC-SHA256 signature verification via `SLACK_SIGNING_SECRET` + 5-min replay protection |
 | AI Client → `open-brain-mcp` | `MCP_ACCESS_KEY` via header (`x-brain-key`) or query param (`?key=`) |
-| Supabase JWT | Disabled (`--no-verify-jwt`) in favor of application-level checks above |
+| Data API → PostgreSQL | Global Row-Level Security (RLS) is ENFORCED on ALL Tables. External REST/GraphQL queries are blocked |
+| Supabase JWT | Disabled (`--no-verify-jwt`) in favor of application-level checks and secure `SUPABASE_SERVICE_ROLE_KEY` usage for backend triggers |
 
 ---
 
