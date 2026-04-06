@@ -76,56 +76,36 @@
 - [x] **Multimodal Extraction:** Integrated OpenRouter `gpt-4o-mini` Vision for image OCR.
 - [x] **Federated Vector Search:** Overhauled `match_memories` RPC to search across both memory and artifact embeddings.
 
+### Phase 12: Harness Architecture Upgrades (Safety & Observability)
+- [x] **Gate Risky Operations (Safety First):** Apply granular permissions to the `open-brain-mcp` server. Move `merge_entities`, `archive_goal`, `create_goal`, and `complete_task` into an administrative/"approval required" queue rather than allowing immediate execution via AI endpoints.
+- [x] **Explicit Workflow State & Resumability:** Add `processing_status` (`pending`, `completed`, `failed`) to the `memories` table to track async hydration explicitely. Move away from using `embedding = null` as a proxy state. Build a dead-letter queue / retry mechanism for failed processes.
+- [x] **Operational Alerts:** Implement a Slack notification triggered when a memory process enters a `failed` state.
+- [x] **Core Intelligence Evals Baseline:** Develop an automated regression suite powered by a small golden dataset (10-20 known Slack messages and their expected JSON extractions) to safely verify `extractMetadata()` consistency natively.
+- [x] **Partition the MCP Surface:** Segment list/read tools from heavy graph-altering capabilities to resolve context bloat and prevent LLMs from confusing reading vs. writing roles.
+- [x] **Cost Visibility:** Implement native tracking for OpenAI budget and context token usage burned per memory ingestion and synthesis cycle.
+
+### Phase 13: The "Taste Preferences" Migration (Mentor Guardrails)
+- [x] **Database Migration:** Created a `taste_preferences` table with explicit `reject` and `want` columns, migrated `goals_and_principles` data, and locked it down with RLS.
+- [x] **Edge Function Update:** Updated `brain-engine.ts` prompts to use strict parameters and rewired `process-memory` to query preferences instead of goals.
+- [x] **MCP Server Update:** Swapped goal mutations out for `add_taste_preference`, `remove_taste_preference`, and `list_taste_preferences`. All mutations are appropriately pushed to the `mcp_operation_queue`.
+- [x] **Data Capture Parity:** Updated `ingest-thought` to route `pref:`, `goal:`, and `principle:` prefixed Slack messages directly into `taste_preferences`.
+
+### Phase 14: Standalone Automations (Proactive Engagement)
+- [x] **Proactive Briefings (Life Engine Model):** Developed `proactive-briefings` Edge Function triggered daily via `pg_cron` / `pg_net` to send a mentor briefing to Slack highlighting active tasks and unresolved system insights.
+- [x] **Hash Deduplication:** Implemented strict SHA-256 content fingerprinting (`content_hash`) in both `ingest-thought` and `open-brain-mcp` to categorically block duplicate entries.
+
+### Phase 15: Wisdom Verticals (Domain-Specific Graph Extensions)
+- [x] **Scalable Registration Framework:** Established `_shared/verticals/` architecture to decouple domain logic from standard ingestion pipelines and prompt blocks.
+- [x] **First Extension (Learning):** Built targeted schema additions (`learning_topics`, `learning_milestones`) representing the Learning & Skills domain.
+- [x] **Dynamic Routing Upgrades:** Updated `extractMetadata` system prompt and `process-memory` payload ingestion to dynamically recognize and route attributes strictly to configured extension tables via the `WisdomVertical` interface.
+- [x] **Agent/Human Interfaces:** Deployed MCP tools (`list_learning_topics`, `add_learning_milestone`, `update_mastery_status`) ensuring tables can be independently managed securely.
+- [x] **SOP Authored:** Added developer documentation in `how-to-add-wisdom-vertical.md` to safely replicate this process for future verticals.
+
 ---
 
 ## Future Horizons (Prioritized)
 
-> Ordered by impact, dependency, and implementation effort.
 
-### 1. Harness Architecture Upgrades *(Safety & Observability)*
-Address critical safety, durability, and observability gaps identified during the `n-agentic-harness` evaluation to ensure long-term viability against rogue AI clients and silent failures.
-
-**Context:** The current iteration exposes unbounded mutation scopes to AI clients via MCP, struggles with invisible async retries on Slack ingestion, and lacks explicit regression testing for the core LLM intelligence pipeline.
-
-**Tasks:**
-- [ ] **Gate Risky Operations (Safety First):** Apply granular permissions to the `open-brain-mcp` server. Move `merge_entities`, `archive_goal`, `create_goal`, and `complete_task` into an administrative/"approval required" queue rather than allowing immediate execution via AI endpoints.
-- [ ] **Explicit Workflow State & Resumability:** Add `processing_status` (`pending`, `completed`, `failed`) to the `memories` table to track async hydration explicitely. Move away from using `embedding = null` as a proxy state. Build a dead-letter queue / retry mechanism for failed processes.
-- [ ] **Operational Alerts:** Implement a Slack notification triggered when a memory process enters a `failed` state.
-- [ ] **Core Intelligence Evals Baseline:** Develop an automated regression suite powered by a small golden dataset (10-20 known Slack messages and their expected JSON extractions) to safely verify `extractMetadata()` consistency natively.
-- [ ] **Partition the MCP Surface:** Segment list/read tools from heavy graph-altering capabilities to resolve context bloat and prevent LLMs from confusing reading vs. writing roles.
-- [ ] **Context Provenance & Expiry:** Introduce strict expiry or deprecation semantics for operational beliefs and goals within `goals_and_principles`.
-- [ ] **Cost Visibility:** Implement native tracking for OpenAI budget and context token usage burned per memory ingestion and synthesis cycle.
-
-### 2. The "Taste Preferences" Migration *(Mentor Guardrails)*
-Migrate from generalized constraints to a strict `taste_preferences` table with explicit `reject` and `want` parameters to reduce LLM hallucination and ensure the Mentor persona evaluates inputs accurately.
-
-**Context:** Currently, `my-ob1` uses a generic `goals_and_principles` table to store constraints for *The Mentor* persona. Nate's best practices dictate using a dedicated, structured `taste_preferences` table with explicit `reject` and `want` boundaries to drastically reduce LLM hallucinations on evaluations.
-
-**Tasks:**
-- [ ] **Database Migration:** Create a `taste_preferences` table with columns: `id`, `preference_name`, `domain`, `reject`, `want`, `constraint_type`, `created_at`. Add Row Level Security (RLS) for the service role.
-- [ ] **Edge Function Update:** Update `process-memory` (and `brain-engine.ts`) to fetch from `taste_preferences` and inject the structured `reject`/`want` pairings into the `evaluateAgainstGoals()` prompt.
-- [ ] **MCP Server Update:** Add new mutation tools (`add_taste_preference`, `list_taste_preferences`, `remove_taste_preference`) to `open-brain-mcp` to allow AI clients to maintain this registry.
-- [ ] **Data Migration:** Convert existing entries in `goals_and_principles` into the new `taste_preferences` format.
-
-### 4. Standalone Automations *(Proactive Engagement)*
-Develop Edge Functions (cron jobs) to enable proactive Slack briefings ("Life Engine" model) highlighting pending tasks/insights, and enforce strict SHA-256 deduplication on ingestion.
-
-**Context:** Expanding beyond direct LLM integration to include background cron automations and data integrity scripts.
-
-**Tasks:**
-- [ ] **Proactive Briefings (Life Engine Model):** Develop an automated daily/weekly cron job (Edge Function) to send a "Mentor Briefing" to Slack highlighting active `tasks` and unresolved `system_insights`.
-- [ ] **Hash Deduplication:** Implement SHA-256 content fingerprinting on the ingestion endpoint to categorically block duplicate entries into the database.
-
-### 5. Wisdom Verticals *(Domain-Specific Graph Extensions)*
-Branch the generalized graph out into tailored extensions (e.g., Family & Kids' Learning, Career & Finance) with specialized tables and LLM routing logic.
-
-**Context:** The current graph (`memories`, `tasks`, `entities`, `threads`) is perfectly generalized. Inspired by OB1's `/extensions`, `my-ob1` will branch into specific "Wisdom Verticals" to grant the AI deep domain context.
-
-**Tasks:**
-- [ ] **Identify the First Extension:** Build targeted schema additions and routing for Family & Kids' Learning, Career & Finance, or Spirituality & Personal Learning.
-- [ ] **Specialized Schema:** Create dedicated extension tables (e.g., `learning_goals`, `financial_assets`) that securely foreign-key back into the `memories` table to maintain the central graph.
-- [ ] **Agent/Human Interfaces:** Ensure the new tables can be independently managed via targeted MCP tools and human-facing queries.
-- [ ] **Routing Upgrades:** Update the `extractMetadata` system prompt to recognize the new domain and route attributes strictly to the extension table.
 
 ### Deferred / Icebox
 

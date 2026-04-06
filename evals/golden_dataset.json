@@ -1,0 +1,54 @@
+[
+    {
+        "input": "We need to migrate the database by next Friday. I'll take lead on this.",
+        "expected": {
+            "memory_type": "decision",
+            "extracted_tasks": [
+                {
+                    "description": "Migrate the database",
+                    "inferred_deadline": "next Friday"
+                }
+            ],
+            "associated_threads": [],
+            "entities_detected": [],
+            "strategic_alignment": null
+        }
+    },
+    {
+        "input": "Discussed the new Apollo project with Sarah. We think it's a great fit for Q3.",
+        "expected": {
+            "memory_type": "observation",
+            "extracted_tasks": [],
+            "associated_threads": [
+                "Apollo",
+                "Q3"
+            ],
+            "entities_detected": [
+                {
+                    "name": "Apollo project",
+                    "type": "Project"
+                },
+                {
+                    "name": "Sarah",
+                    "type": "Person"
+                }
+            ],
+            "strategic_alignment": null
+        }
+    },
+    {
+        "input": "The API rate limits are completely broken again. This is the third time this week.",
+        "expected": {
+            "memory_type": "complaint",
+            "extracted_tasks": [],
+            "associated_threads": [],
+            "entities_detected": [
+                {
+                    "name": "API rate limits",
+                    "type": "Concept"
+                }
+            ],
+            "strategic_alignment": null
+        }
+    }
+]

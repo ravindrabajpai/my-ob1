@@ -70,24 +70,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
         // Check for goal/principle prefix routing
         const lowerText = messageText.toLowerCase().trim();
-        if (lowerText.startsWith("goal:") || lowerText.startsWith("principle:")) {
-            const isGoal = lowerText.startsWith("goal:");
-            const type = isGoal ? "Goal" : "Principle";
-            const content = messageText.substring(messageText.indexOf(":") + 1).trim();
+        if (lowerText.startsWith("pref:") || lowerText.startsWith("goal:") || lowerText.startsWith("principle:")) {
+            const prefixIndex = messageText.indexOf(":");
+            const typeStr = messageText.substring(0, prefixIndex).trim();
+            const content = messageText.substring(prefixIndex + 1).trim();
 
-            const { error } = await supabase.from("goals_and_principles").insert({ content, type });
+            const { error } = await supabase.from("taste_preferences").insert({
+                preference_name: typeStr + ' ' + content.substring(0, 15),
+                domain: "general",
+                reject: "Things that contradict this " + typeStr,
+                want: content,
+                constraint_type: typeStr
+            });
             if (error) {
-                await replyInSlack(channel, messageTs, `❌ Failed to save ${type}: ${error.message}`);
+                await replyInSlack(channel, messageTs, `❌ Failed to save preference: ${error.message}`);
                 return new Response("error", { status: 500 });
             }
-            await replyInSlack(channel, messageTs, `✅ ${type} saved: "${content}"`);
+            await replyInSlack(channel, messageTs, `✅ Preference saved: "${content}"`);
             return new Response("ok", { status: 200 });
         }
+
+        const hashData = new TextEncoder().encode(messageText + (messageTs || ""));
+        const hashBuffer = await crypto.subtle.digest("SHA-256", hashData);
+        const contentHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
 
         // 1. Insert Memory IMMEDIATELY (Async Ingestion - Phase 1)
         // Background extraction handled by pg_net webhook calling `process-memory`
         const { error: memoryError } = await supabase.from("memories").insert({
             content: messageText,
+            content_hash: contentHash,
             type: "observation", // Default until process-memory updates it
             embedding: null, // process-memory will compute this
             slack_metadata: {
@@ -98,6 +109,10 @@ Deno.serve(async (req: Request): Promise<Response> => {
         });
 
         if (memoryError) {
+            if (memoryError.code === "23505") { // UNIQUE_VIOLATION
+                console.log(`Duplicate detected (hash ${contentHash}). Ignoring.`);
+                return new Response("ok", { status: 200 });
+            }
             console.error("Supabase memory insert error:", memoryError);
             await replyInSlack(channel, messageTs, `Failed to capture: ${memoryError.message}`);
             return new Response("error", { status: 500 });
