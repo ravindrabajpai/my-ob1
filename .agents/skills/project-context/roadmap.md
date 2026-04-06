@@ -63,6 +63,13 @@
 - [x] Add Slack integration to push generated digest directly to `SLACK_CAPTURE_CHANNEL`.
 - [x] Add `get_recent_synthesis` tool to MCP server for AI clients to fetch latest report.
 
+### Phase 10: Core AI Skills Adaptation (Agent Workflows)
+- [x] **Auto-Capture:** Workflow that triggers at end of a session to extract final tasks and summarize into an active thread.
+- [x] **Workflow Observability:** Observability rule to distil hard-won lessons into `goals_and_principles` table.
+- [x] **Heavy File Ingestion:** Pre-processing scripts to convert large files before placing them in `artifacts`.
+- [x] **Research Synthesis:** Constraints on semantic queries for explicitly stating gaps and marking confidence.
+- [x] **N Agentic Harnesses:** Architectural rule set evaluating tool boundaries and permission policies.
+
 ---
 
 ## Future Horizons (Prioritized)
@@ -70,7 +77,48 @@
 > Ordered by impact, dependency, and implementation effort.
 
 ### 1. Artifact Processing Pipeline *(Cognitive Layer — Multi-Modal)*
-Implement image OCR and audio transcription for the `artifacts` table. Trigger a secondary Edge Function when a new row has an image/audio MIME type. Store extracted text in the `text_content` column for vector search inclusion.
+Address the "Multimodal Mystery Box". Implement text extraction, image OCR, and audio transcription for the `artifacts` table via a secondary `process-artifact` Edge Function, enabling rich vector search over attachments.
 
-### Deferred
+**Context:** The `artifacts` table currently stores Supabase Storage URLs for file attachments but leaves the `text_content` column permanently `null`. To enable true multimodal capture and vector search, files must be processed.
+
+**Tasks:**
+- [ ] **Text Extraction Strategy:** Integrate with an affordable LLM vision or transcription model within the Edge Function ecosystem.
+- [ ] **Database Webhook:** Set up a secondary `pg_net` webhook that triggers when a new row is added to the `artifacts` table.
+- [ ] **Processing Edge Function:** Create a `process-artifact` Edge Function that runs the extraction, generates a vector embedding over the extracted text, and updates the `artifacts` row.
+- [ ] **Search Upgrades:** Modify the `match_memories` RPC to optionally query the `artifacts` table text payloads.
+
+### 2. The "Taste Preferences" Migration *(Mentor Guardrails)*
+Migrate from generalized constraints to a strict `taste_preferences` table with explicit `reject` and `want` parameters to reduce LLM hallucination and ensure the Mentor persona evaluates inputs accurately.
+
+**Context:** Currently, `my-ob1` uses a generic `goals_and_principles` table to store constraints for *The Mentor* persona. Nate's best practices dictate using a dedicated, structured `taste_preferences` table with explicit `reject` and `want` boundaries to drastically reduce LLM hallucinations on evaluations.
+
+**Tasks:**
+- [ ] **Database Migration:** Create a `taste_preferences` table with columns: `id`, `preference_name`, `domain`, `reject`, `want`, `constraint_type`, `created_at`. Add Row Level Security (RLS) for the service role.
+- [ ] **Edge Function Update:** Update `process-memory` (and `brain-engine.ts`) to fetch from `taste_preferences` and inject the structured `reject`/`want` pairings into the `evaluateAgainstGoals()` prompt.
+- [ ] **MCP Server Update:** Add new mutation tools (`add_taste_preference`, `list_taste_preferences`, `remove_taste_preference`) to `open-brain-mcp` to allow AI clients to maintain this registry.
+- [ ] **Data Migration:** Convert existing entries in `goals_and_principles` into the new `taste_preferences` format.
+
+### 3. Standalone Automations *(Proactive Engagement)*
+Develop Edge Functions (cron jobs) to enable proactive Slack briefings ("Life Engine" model) highlighting pending tasks/insights, and enforce strict SHA-256 deduplication on ingestion.
+
+**Context:** Expanding beyond direct LLM integration to include background cron automations and data integrity scripts.
+
+**Tasks:**
+- [ ] **Proactive Briefings (Life Engine Model):** Develop an automated daily/weekly cron job (Edge Function) to send a "Mentor Briefing" to Slack highlighting active `tasks` and unresolved `system_insights`.
+- [ ] **Hash Deduplication:** Implement SHA-256 content fingerprinting on the ingestion endpoint to categorically block duplicate entries into the database.
+
+### 4. Wisdom Verticals *(Domain-Specific Graph Extensions)*
+Branch the generalized graph out into tailored extensions (e.g., Family & Kids' Learning, Career & Finance) with specialized tables and LLM routing logic.
+
+**Context:** The current graph (`memories`, `tasks`, `entities`, `threads`) is perfectly generalized. Inspired by OB1's `/extensions`, `my-ob1` will branch into specific "Wisdom Verticals" to grant the AI deep domain context.
+
+**Tasks:**
+- [ ] **Identify the First Extension:** Build targeted schema additions and routing for Family & Kids' Learning, Career & Finance, or Spirituality & Personal Learning.
+- [ ] **Specialized Schema:** Create dedicated extension tables (e.g., `learning_goals`, `financial_assets`) that securely foreign-key back into the `memories` table to maintain the central graph.
+- [ ] **Agent/Human Interfaces:** Ensure the new tables can be independently managed via targeted MCP tools and human-facing queries.
+- [ ] **Routing Upgrades:** Update the `extractMetadata` system prompt to recognize the new domain and route attributes strictly to the extension table.
+
+### Deferred / Icebox
+
 - Dashboard / reporting Edge Function
+- **Self-Hosted Kubernetes Deployment:** Adapt the OB1 helm charts/blueprints to create a fully local, self-contained PostgreSQL + pgvector deployment for `my-ob1` as a future-proofing measure.

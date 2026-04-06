@@ -84,6 +84,7 @@ Slack Message (+ optional file attachments)
 | Phase 7: Direct Entity & Task Queries | ✅ Complete | Deterministic structure lookup tools (`list_tasks`, `list_entities`, etc.) |
 | Phase 8: `capture_memory` Parity | ✅ Complete | Sync MCP tool with Slack ingestion (Threads & Mentorship logic) |
 | Phase 9: Automated Synthesis | ✅ Complete | Weekly digest extraction sent to Slack |
+| Phase 10: Core AI Skills Adaptation | ✅ Complete | Ported Auto-Capture, Workflow Observability, File Ingestion, Synthesis, and Agent Harnesses into `.agents/skills/` |
 
 **What is NOT yet built** (see [roadmap.md](./roadmap.md) for details):
 1. Artifact processing pipeline (OCR, transcription)
@@ -131,11 +132,23 @@ my-ob1/
 │       └── 006_automated_synthesis.sql # synthesis_reports table for weekly digests
 ├── mcp-server/                         # UNUSED — MCP lives in supabase/functions/open-brain-mcp
 ├── .agents/
-│   ├── skills/project-context/
-│   │   ├── SKILL.md                    # THIS FILE — root project index
-│   │   ├── schema-state.md             # Database schema reference
-│   │   ├── edge-functions.md           # Edge Function module reference
-│   │   └── roadmap.md                  # Project roadmap & future horizons
+│   ├── skills/
+│   │   ├── project-context/
+│   │   │   ├── SKILL.md                    # THIS FILE — root project index
+│   │   │   ├── schema-state.md             # Database schema reference
+│   │   │   ├── edge-functions.md           # Edge Function module reference
+│   │   │   └── roadmap.md                  # Project roadmap & future horizons
+│   │   ├── auto-capture/
+│   │   │   └── SKILL.md                    # Triggered at the end of sessions
+│   │   ├── workflow-observability/
+│   │   │   └── SKILL.md                    # Extracts and injects workflow lessons
+│   │   ├── heavy-file-ingestion/
+│   │   │   ├── SKILL.md                    # Pre-processing docs before DB insertion
+│   │   │   └── scripts/ingest.ts
+│   │   ├── research-synthesis/
+│   │   │   └── SKILL.md                    # Constraints for semantic queries
+│   │   └── n-agentic-harness/
+│   │       └── SKILL.md                    # Tool boundaries and definitions
 │   ├── workflows/
 │   │   └── development-loop.yaml       # Standard feature dev workflow
 │   └── rules/
