@@ -151,3 +151,35 @@ Be direct, insightful, and avoid unnecessary filler. Use modern, clean markdown 
         return null;
     }
 }
+
+/**
+ * Uses an LLM with Vision to extract text and a descriptive summary from an image URL.
+ */
+export async function extractImageText(imageUrl: string): Promise<string | null> {
+    const r = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+        method: "POST",
+        headers: {
+            "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json; charset=utf-8",
+        },
+        body: JSON.stringify({
+            model: "openai/gpt-4o-mini",
+            messages: [
+                {
+                    role: "user",
+                    content: [
+                        { type: "text", text: "Perform OCR to extract any text in this image, and provide a concise, descriptive summary of what the image contains." },
+                        { type: "image_url", image_url: { url: imageUrl } }
+                    ]
+                }
+            ]
+        }),
+    });
+
+    if (!r.ok) {
+        console.error(`Vision extraction failed: ${r.status}`);
+        return null;
+    }
+    const d = await r.json();
+    return d.choices?.[0]?.message?.content?.trim() || null;
+}

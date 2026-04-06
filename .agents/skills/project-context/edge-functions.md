@@ -12,6 +12,7 @@ All server-side logic runs as **Supabase Edge Functions** written in **Deno/Type
 |----------|------|---------|
 | `ingest-thought` | `supabase/functions/ingest-thought/index.ts` | Slack webhook receiver → fast sync insert to `memories` |
 | `process-memory` | `supabase/functions/process-memory/index.ts` | Background job (triggered by `pg_net` webhook) → LLM extraction + graph ingestion |
+| `process-artifact` | `supabase/functions/process-artifact/index.ts` | Background job (triggered by `pg_net` webhook) → OCR/transcription and vector embedding |
 | `automated-synthesis` | `supabase/functions/automated-synthesis/index.ts` | Cron job/webhook (generates weekly digest, saves to DB, posts to Slack) |
 | `open-brain-mcp` | `supabase/functions/open-brain-mcp/index.ts` | MCP server exposing tools to AI clients |
 | `_shared/brain-engine.ts` | `supabase/functions/_shared/brain-engine.ts` | Shared AI module (embeddings, metadata extraction, goal evaluation) |
@@ -28,6 +29,7 @@ All LLM operations are centralized here. Both Edge Functions import from this mo
 |----------|-------|---------|
 | `getEmbedding(text)` | `openai/text-embedding-3-small` | Generates 1536-dim vector embedding via OpenRouter |
 | `extractMetadata(text)` | `openai/gpt-4o-mini` | Extracts structured JSON: `memory_type`, `extracted_tasks`, `associated_threads`, `entities_detected`, `strategic_alignment` |
+| `extractImageText(imageUrl)`| `openai/gpt-4o-mini` | Performs OCR to extract text and a concise summary from an image URL |
 | `evaluateAgainstGoals(memoryText, goals[])` | `openai/gpt-4o-mini` | Evaluates a memory against user's goals/principles; returns 1-2 sentence insight or `null` |
 | `generateSynthesis(memories, tasks, insights, goals)` | `openai/gpt-4o-mini` | Extracts patterns and summarizes a weekly backlog into a single markdown digest |
 
@@ -80,7 +82,8 @@ Triggered asynchronously by Supabase `pg_net` webhook on `memories` insert.
 | 6d | Upsert entities + link via join table | `entities`, `memory_entities` |
 | 6e | Upsert threads + link via join table | `threads`, `memory_threads` |
 | 6f | Download Slack file attachments → upload to Supabase Storage → insert metadata | `artifacts` (table + storage bucket) |
-| 6g | Fetch all goals → `evaluateAgainstGoals()` → insert insight | `system_insights` |
+| 6g | (Background webhook on artifacts insert) Fetch artifact, extract OCR/text, generate embedding, update | `artifacts` |
+| 6h | Fetch all goals → `evaluateAgainstGoals()` → insert insight | `system_insights` |
 
 ### Slack Confirmation Reply
 
@@ -157,6 +160,8 @@ Captured as *observation*
 # Deploy functions (no JWT verification — app-level auth is used)
 npx supabase functions deploy ingest-thought --no-verify-jwt --workdir .
 npx supabase functions deploy process-memory --no-verify-jwt --workdir .
+npx supabase functions deploy process-artifact --no-verify-jwt --workdir .
+npx supabase functions deploy automated-synthesis --no-verify-jwt --workdir .
 npx supabase functions deploy open-brain-mcp --no-verify-jwt --workdir .
 ```
 
@@ -173,4 +178,4 @@ npx supabase functions deploy open-brain-mcp --no-verify-jwt --workdir .
 
 | Gap | Impact |
 |-----|--------|
-| No artifact processing (OCR/transcription) | `text_content` column in `artifacts` is always `null` |
+| Only simple files (images, text) supported natively by Edge Functions | Massive spreadsheets or complex PDFs still rely on the out-of-band `heavy-file-ingestion` scripts prior to upload. |
