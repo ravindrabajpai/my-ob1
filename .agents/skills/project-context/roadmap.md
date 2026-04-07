@@ -98,7 +98,7 @@
 - [x] **Scalable Registration Framework:** Established `_shared/verticals/` architecture to decouple domain logic from standard ingestion pipelines and prompt blocks.
 - [x] **First Extension (Learning):** Built targeted schema additions (`learning_topics`, `learning_milestones`) representing the Learning & Skills domain.
 - [x] **Dynamic Routing Upgrades:** Updated `extractMetadata` system prompt and `process-memory` payload ingestion to dynamically recognize and route attributes strictly to configured extension tables via the `WisdomVertical` interface.
-- [x] **Agent/Human Interfaces:** Deployed MCP tools (`list_learning_topics`, `add_learning_milestone`, `update_mastery_status`) ensuring tables can be independently managed securely.
+- [x] **Agent/Human Interfaces:** Deployed MCP tools (`list_learning_topics`, `add_learning_milestone`, `update_mastery_status`) and Slack prefix routing (`done:`) ensuring tables can be independently managed securely.
 - [x] **SOP Authored:** Added developer documentation in `how-to-add-wisdom-vertical.md` to safely replicate this process for future verticals.
 
 ---

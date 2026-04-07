@@ -72,8 +72,8 @@ All LLM operations are centralized here. Both Edge Functions import from this mo
 2. Verify Slack signature (HMAC-SHA256 + 5-min replay window)
 3. Handle url_verification challenge (Slack setup handshake)
 4. Filter: only process messages from SLACK_CAPTURE_CHANNEL, no subtypes, no bot messages
-5. Check for pref:/goal:/principle: prefix → direct structured routing to taste_preferences table
-6. Generate SHA-256 hash of content (deduplication)
+5. Check for pref:/goal:/principle:/done:/complete: prefix → direct structured routing to taste_preferences or tasks table
+6. Generate SHA-256 hash of message content (strictly based on text, no timestamp, to categorically block duplicates)
 7. Insert memory block to `memories` with `slack_metadata` and `content_hash` -> return 200 OK instantly (ignores unique constraints on duplicate).
 ```
 
@@ -107,6 +107,7 @@ Captured as *observation*
 🔗 Entities: 3 linked
 🧵 Threads: 1
 📎 Files: 1 saved
+📚 Learning: 1 topic updated (or other Wisdom Verticals)
 🧠 Insight: This supports your Q2 delivery milestone.
 🧭 Alignment: Relates to project management goals
 ```

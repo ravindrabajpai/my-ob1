@@ -26,12 +26,6 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
     try {
         const body = await req.json();
-
-        if (body?.ping) {
-            const { data } = await supabase.from("memories").select("id, content, processing_status, processing_error").order("created_at", { ascending: false }).limit(3);
-            return new Response(JSON.stringify(data), { status: 200 });
-        }
-
         const record = body?.record;
 
         if (!record || !record.id || !record.content) {
@@ -134,11 +128,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
         }
 
         // 4.5 Process Wisdom Verticals
+        const triggeredVerticals: string[] = [];
         if (meta.wisdom_extensions) {
             for (const vertical of activeVerticals) {
                 if (meta.wisdom_extensions[vertical.name]) {
                     try {
                         await vertical.process(memoryId!, meta.wisdom_extensions[vertical.name], supabase);
+                        triggeredVerticals.push(vertical.name);
                     } catch (vErr) {
                         console.error(`Error processing vertical ${vertical.name}:`, vErr);
                     }
@@ -212,6 +208,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
             if (linkedEntitiesCount > 0) confirmation += `\n🔗 Entities: ${linkedEntitiesCount} linked`;
             if (linkedThreadsCount > 0) confirmation += `\n🧵 Threads: ${linkedThreadsCount}`;
             if (artifactCount > 0) confirmation += `\n📎 Files: ${artifactCount} saved`;
+            if (triggeredVerticals.length > 0) {
+                for (const vName of triggeredVerticals) {
+                    const icon = vName === 'learning' ? '📚' : '🗳️';
+                    confirmation += `\n${icon} ${vName.charAt(0).toUpperCase() + vName.slice(1)}: Triggered`;
+                }
+            }
             if (insightText) confirmation += `\n🧠 Insight: ${insightText}`;
             if (meta.strategic_alignment) confirmation += `\n🧭 Alignment: ${meta.strategic_alignment}`;
             confirmation += `\n💸 Cost: ${totalTokens} tokens`;

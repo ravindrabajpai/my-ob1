@@ -68,13 +68,44 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const messageTs: string = event.ts;
         if (!messageText || messageText.trim() === "") return new Response("ok", { status: 200 });
 
-        // Check for goal/principle prefix routing
+        // Check for goal/principle/task prefix routing
         const lowerText = messageText.toLowerCase().trim();
-        if (lowerText.startsWith("pref:") || lowerText.startsWith("goal:") || lowerText.startsWith("principle:")) {
+        if (lowerText.startsWith("pref:") || lowerText.startsWith("goal:") || lowerText.startsWith("principle:") || lowerText.startsWith("done:") || lowerText.startsWith("complete:")) {
             const prefixIndex = messageText.indexOf(":");
-            const typeStr = messageText.substring(0, prefixIndex).trim();
+            const typeStr = messageText.substring(0, prefixIndex).trim().toLowerCase();
             const content = messageText.substring(prefixIndex + 1).trim();
 
+            if (typeStr === "done" || typeStr === "complete") {
+                // Task Completion Logic
+                const { data: tasks, error: searchError } = await supabase
+                    .from("tasks")
+                    .select("id, description")
+                    .ilike("description", `%${content}%`)
+                    .eq("status", "pending")
+                    .order("created_at", { ascending: false })
+                    .limit(1);
+
+                if (searchError || !tasks || tasks.length === 0) {
+                    await replyInSlack(channel, messageTs, `❌ No pending task found matching "${content}"`);
+                    return new Response("ok", { status: 200 });
+                }
+
+                const task = tasks[0];
+                const { error: updateError } = await supabase
+                    .from("tasks")
+                    .update({ status: "completed" })
+                    .eq("id", task.id);
+
+                if (updateError) {
+                    await replyInSlack(channel, messageTs, `❌ Failed to complete task: ${updateError.message}`);
+                    return new Response("error", { status: 500 });
+                }
+
+                await replyInSlack(channel, messageTs, `✅ Task completed: "${task.description}"`);
+                return new Response("ok", { status: 200 });
+            }
+
+            // Preference/Goal/Principle routing logic
             const { error } = await supabase.from("taste_preferences").insert({
                 preference_name: typeStr + ' ' + content.substring(0, 15),
                 domain: "general",
@@ -90,7 +121,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
             return new Response("ok", { status: 200 });
         }
 
-        const hashData = new TextEncoder().encode(messageText + (messageTs || ""));
+        const hashData = new TextEncoder().encode(messageText);
         const hashBuffer = await crypto.subtle.digest("SHA-256", hashData);
         const contentHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
 
