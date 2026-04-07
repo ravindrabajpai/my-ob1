@@ -9,27 +9,40 @@ const SLACK_BOT_TOKEN = Deno.env.get("SLACK_BOT_TOKEN")!;
 const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
 async function replyInSlack(channel: string, threadTs: string, text: string): Promise<void> {
-    await fetch("https://slack.com/api/chat.postMessage", {
+    const res = await fetch("https://slack.com/api/chat.postMessage", {
         method: "POST",
         headers: { "Authorization": `Bearer ${SLACK_BOT_TOKEN}`, "Content-Type": "application/json" },
         body: JSON.stringify({ channel, thread_ts: threadTs, text }),
     });
+    if (!res.ok) throw new Error(`Slack HTTP error: ${res.status}`);
+    const data = await res.json();
+    if (!data.ok) throw new Error(`Slack API error: ${data.error}`);
 }
 
 Deno.serve(async (req: Request): Promise<Response> => {
+    let memoryId: string | undefined;
+    let channel: string | undefined;
+    let ts: string | undefined;
+
     try {
         const body = await req.json();
+
+        if (body?.ping) {
+            const { data } = await supabase.from("memories").select("id, content, processing_status, processing_error").order("created_at", { ascending: false }).limit(3);
+            return new Response(JSON.stringify(data), { status: 200 });
+        }
+
         const record = body?.record;
 
         if (!record || !record.id || !record.content) {
             return new Response("Missing record data", { status: 400 });
         }
 
-        const memoryId = record.id;
+        memoryId = record.id;
         const messageText = record.content;
         const slackMetadata = record.slack_metadata || {};
-        const channel = slackMetadata.channel;
-        const messageTs = slackMetadata.ts;
+        channel = slackMetadata.channel;
+        ts = slackMetadata.ts;
         const files = slackMetadata.files || [];
 
         let totalTokens = 0;
@@ -71,7 +84,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
             const taskInserts = meta.extracted_tasks.map((t: any) => ({
                 memory_id: memoryId,
                 description: t.description,
-                due_date: t.inferred_deadline || null,
+                due_date: (t.inferred_deadline && typeof t.inferred_deadline === 'string' && t.inferred_deadline !== "null") ? t.inferred_deadline : null,
                 status: "pending"
             }));
             const { error: taskError } = await supabase.from("tasks").insert(taskInserts);
@@ -125,7 +138,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
             for (const vertical of activeVerticals) {
                 if (meta.wisdom_extensions[vertical.name]) {
                     try {
-                        await vertical.process(memoryId, meta.wisdom_extensions[vertical.name], supabase);
+                        await vertical.process(memoryId!, meta.wisdom_extensions[vertical.name], supabase);
                     } catch (vErr) {
                         console.error(`Error processing vertical ${vertical.name}:`, vErr);
                     }
@@ -193,7 +206,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
         }).eq("id", memoryId);
 
         // Format Slack confirmation
-        if (channel && messageTs) {
+        if (channel && ts) {
             let confirmation = `Captured as *${meta.memory_type || "observation"}*`;
             if (meta.extracted_tasks?.length > 0) confirmation += `\n🎯 Tasks: ${meta.extracted_tasks.length}`;
             if (linkedEntitiesCount > 0) confirmation += `\n🔗 Entities: ${linkedEntitiesCount} linked`;
@@ -203,18 +216,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
             if (meta.strategic_alignment) confirmation += `\n🧭 Alignment: ${meta.strategic_alignment}`;
             confirmation += `\n💸 Cost: ${totalTokens} tokens`;
 
-            await replyInSlack(channel, messageTs, confirmation);
+            await replyInSlack(channel, ts, confirmation);
         }
 
         return new Response("ok", { status: 200 });
     } catch (err: any) {
         console.error("Function error:", err);
         try {
-            const body = await req.json().catch(() => ({}));
-            const memoryId = body?.record?.id;
-            const channel = body?.record?.slack_metadata?.channel;
-            const ts = body?.record?.slack_metadata?.ts;
-
             if (memoryId) {
                 await supabase.from("memories").update({
                     processing_status: "failed",
