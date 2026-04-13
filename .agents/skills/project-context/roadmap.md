@@ -59,7 +59,7 @@
 
 ### Phase 9: Automated Synthesis
 - [x] Create `synthesis_reports` table (migration `006_automated_synthesis.sql`).
-- [x] Create `automated-synthesis` Edge Function to fetch last 7 days of data and evaluate via LLM.
+- [x] Create `automated-synthesis` Edge Function to fetch last 7 days of data and evaluate via LLM (Scheduled: Fri 17:00 UTC).
 - [x] Add Slack integration to push generated digest directly to `SLACK_CAPTURE_CHANNEL`.
 - [x] Add `get_recent_synthesis` tool to MCP server for AI clients to fetch latest report.
 

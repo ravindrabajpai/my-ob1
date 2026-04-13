@@ -13,7 +13,7 @@ All server-side logic runs as **Supabase Edge Functions** written in **Deno/Type
 | `ingest-thought` | `supabase/functions/ingest-thought/index.ts` | Slack webhook receiver → fast sync insert to `memories` |
 | `process-memory` | `supabase/functions/process-memory/index.ts` | Background job (triggered by `pg_net` webhook) → LLM extraction + graph ingestion |
 | `process-artifact` | `supabase/functions/process-artifact/index.ts` | Background job (triggered by `pg_net` webhook) → OCR/transcription and vector embedding |
-| `automated-synthesis` | `supabase/functions/automated-synthesis/index.ts` | Cron job/webhook (generates weekly digest, saves to DB, posts to Slack) |
+| `automated-synthesis` | `supabase/functions/automated-synthesis/index.ts` | Cron job (`weekly_synthesis_report`) -> generates weekly digest, saves to DB, posts to Slack |
 | `proactive-briefings` | `supabase/functions/proactive-briefings/index.ts` | Cron job (sends daily Slack briefing with pending tasks and recent insights) |
 | `open-brain-mcp` | `supabase/functions/open-brain-mcp/index.ts` | MCP server exposing tools to AI clients |
 | `_shared/brain-engine.ts` | `supabase/functions/_shared/brain-engine.ts` | Shared AI module (embeddings, metadata extraction, goal evaluation) |

@@ -83,7 +83,7 @@ Slack Message (+ optional file attachments)
 | Phase 6: Interactive MCP Tools | ✅ Complete | Mutation tools for tasks, entities, and goals + deduplication RPC |
 | Phase 7: Direct Entity & Task Queries | ✅ Complete | Deterministic structure lookup tools (`list_tasks`, `list_entities`, etc.) |
 | Phase 8: `capture_memory` Parity | ✅ Complete | Sync MCP tool with Slack ingestion (Threads & Mentorship logic) |
-| Phase 9: Automated Synthesis | ✅ Complete | Weekly digest extraction sent to Slack |
+| Phase 9: Automated Synthesis | ✅ Complete | Weekly digest extraction sent to Slack (Scheduled: Fri 17:00 UTC) |
 | Phase 10: Core AI Skills Adaptation | ✅ Complete | Ported Auto-Capture, Workflow Observability, File Ingestion, Synthesis, and Agent Harnesses into `.agents/skills/` |
 | Phase 11: Artifact Processing Pipeline & RLS | ✅ Complete | OCR/multimodal process-artifact Edge Function, federated search capabilities, and Global database RLS lockdown. |
 | Phase 12: Harness Architecture Upgrades | ✅ Complete | Safety observability enhancements, MCP queues, tokens usage tracing. |
@@ -138,7 +138,13 @@ my-ob1/
 │       ├── 004_async_ingestion.sql     # Database webhook for async processing
 │       ├── 005_mcp_mutations.sql       # RPCs and schema additions for MCP tools
 │       ├── 006_automated_synthesis.sql # synthesis_reports table for weekly digests
-│       └── 007_artifact_processing_and_rls.sql # Vector embedding for artifacts, pg_net webhook, and global RLS lockdown
+│       ├── 007_artifact_processing_and_rls.sql # Vector embedding for artifacts, pg_net webhook, and global RLS lockdown
+│       ├── 008_harness_observability.sql # Status tracking & error logging
+│       ├── 009_taste_preferences_migration.sql # WANT/REJECT constraints
+│       ├── 010_content_hash_deduplication.sql # SHA-256 fingerprinting
+│       ├── 011_proactive_briefings_cron.sql # Daily briefings schedule
+│       ├── 012_wisdom_vertical_framework_and_learning.sql # Learning vertical schema
+│       └── 013_automated_synthesis_cron.sql # Weekly synthesis schedule
 ├── mcp-server/                         # UNUSED — MCP lives in supabase/functions/open-brain-mcp
 ├── .agents/
 │   ├── skills/

@@ -23,6 +23,7 @@ The database is **Supabase PostgreSQL** with the `pgvector` extension for semant
 | `010_content_hash_deduplication.sql` | Adds `content_hash` TEXT UNIQUE column to `memories` for strict SHA-256 deduplication. |
 | `011_proactive_briefings_cron.sql` | Creates a pg_cron schedule to trigger the `proactive-briefings` Edge Function. |
 | `012_wisdom_vertical_framework_and_learning.sql` | Creates `learning_topics`, `memory_learning_topics`, and `learning_milestones` tables for the Learning vertical. |
+| `013_automated_synthesis_cron.sql` | Schedules the weekly synthesis report to run every Friday via pg_cron. |
 
 ---
 
