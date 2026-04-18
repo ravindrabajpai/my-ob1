@@ -45,6 +45,8 @@ Slack Message (+ optional file attachments)
 │             └── system_insights                  │
 │                                                  │
 │  goals_and_principles (mentor baseline)          │
+│  taste_preferences (strict guardrails)          │
+│  system_config (project credentials)            │
 │  match_memories() RPC                            │
 └──────────────────────────────────────────────────┘
          │
@@ -144,7 +146,8 @@ my-ob1/
 │       ├── 010_content_hash_deduplication.sql # SHA-256 fingerprinting
 │       ├── 011_proactive_briefings_cron.sql # Daily briefings schedule
 │       ├── 012_wisdom_vertical_framework_and_learning.sql # Learning vertical schema
-│       └── 013_automated_synthesis_cron.sql # Weekly synthesis schedule
+│       ├── 013_automated_synthesis_cron.sql # Weekly synthesis schedule
+│       └── 014_system_config.sql # Persistent configuration table
 ├── mcp-server/                         # UNUSED — MCP lives in supabase/functions/open-brain-mcp
 ├── .agents/
 │   ├── skills/

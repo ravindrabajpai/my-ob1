@@ -24,6 +24,7 @@ The database is **Supabase PostgreSQL** with the `pgvector` extension for semant
 | `011_proactive_briefings_cron.sql` | Creates a pg_cron schedule to trigger the `proactive-briefings` Edge Function. |
 | `012_wisdom_vertical_framework_and_learning.sql` | Creates `learning_topics`, `memory_learning_topics`, and `learning_milestones` tables for the Learning vertical. |
 | `013_automated_synthesis_cron.sql` | Schedules the weekly synthesis report to run every Friday via pg_cron. |
+| `014_system_config.sql` | `system_config` table for persistent configuration (replaces restricted GUCs). |
 
 ---
 
@@ -160,6 +161,32 @@ Gated approval queue for highly privileged operations requested by AI agents.
 | `status` | TEXT NOT NULL | Default: `pending`. Can transition to `approved`, `rejected` |
 | `created_at` | TIMESTAMPTZ | UTC default |
 | `updated_at` | TIMESTAMPTZ | Last touch time |
+| `cost_metrics` | JSONB | Stores usage in tokens and USD |
+
+| `description` | TEXT | Contextual milestone description |
+| `created_at` | TIMESTAMPTZ | UTC default |
+
+---
+
+### System Configuration
+
+#### `system_config`
+Internal key-value store for environment variables (e.g. `project_ref`, `service_role_key`) accessible by background jobs.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `key` | TEXT (PK) | Configuration key |
+| `value` | TEXT NOT NULL | Configuration value |
+| `description`| TEXT | Documentation for the key |
+| `updated_at` | TIMESTAMPTZ | Last change time |
+
+**How to set values:**
+```sql
+INSERT INTO public.system_config (key, value) VALUES
+('project_ref', 'your-ref'),
+('service_role_key', 'your-key')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+```
 
 ---
 

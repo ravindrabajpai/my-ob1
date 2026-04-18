@@ -8,13 +8,22 @@ SELECT cron.schedule(
   'proactive_briefings_daily', -- name of the cron job
   '0 9 * * *',                 -- cron schedule (9:00 AM UTC daily)
   $$
-    SELECT net.http_post(
-        url:='https://' || current_setting('custom.project_ref', true) || '.supabase.co/functions/v1/proactive-briefings',
-        headers:=jsonb_build_object(
-            'Authorization', 'Bearer ' || current_setting('custom.service_role_key', true),
-            'Content-Type', 'application/json'
-        ),
-        body:='{}'::jsonb
-    );
+    DO $proc$
+    DECLARE
+      p_ref text := (SELECT value FROM public.system_config WHERE key = 'project_ref');
+      p_key text := (SELECT value FROM public.system_config WHERE key = 'service_role_key');
+    BEGIN
+      PERFORM net.http_post(
+          url:=coalesce(
+            'https://' || p_ref || '.supabase.co/functions/v1/proactive-briefings',
+            'http://kong:8000/functions/v1/proactive-briefings'
+          ),
+          headers:=jsonb_build_object(
+              'Authorization', 'Bearer ' || coalesce(p_key, ''),
+              'Content-Type', 'application/json'
+          ),
+          body:='{}'::jsonb
+      );
+    END $proc$;
   $$
 );

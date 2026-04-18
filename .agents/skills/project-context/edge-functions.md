@@ -194,6 +194,28 @@ npx supabase functions deploy open-brain-mcp --no-verify-jwt --workdir .
 
 ---
 
+## 6. Deployment Prerequisites
+
+For scheduled functions (`automated-synthesis`, `proactive-briefings`) to execute via `pg_cron`, the database must be configured with the project's credentials.
+
+### Required Configuration (`system_config` table)
+The migrations expect the following keys in the `public.system_config` table:
+1. `project_ref`: Your Supabase Project Reference ID.
+2. `service_role_key`: Your Service Role API Key.
+
+**How to set:**
+Run the following in the Supabase SQL Editor:
+```sql
+INSERT INTO public.system_config (key, value) VALUES
+('project_ref', 'your-project-ref'),
+('service_role_key', 'your-service-role-key')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+```
+
+If these values are missing from the table, the functions will attempt to fallback to `http://kong:8000` (local development), which will likely fail in production.
+
+---
+
 ## 5. Known Gaps (vs. Roadmap)
 
 | Gap | Impact |

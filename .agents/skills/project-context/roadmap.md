@@ -101,6 +101,11 @@
 - [x] **Agent/Human Interfaces:** Deployed MCP tools (`list_learning_topics`, `add_learning_milestone`, `update_mastery_status`) and Slack prefix routing (`done:`) ensuring tables can be independently managed securely.
 - [x] **SOP Authored:** Added developer documentation in `how-to-add-wisdom-vertical.md` to safely replicate this process for future verticals.
 
+### Phase 16: System Observability & Persistent Configuration (Hardening)
+- [x] **Config Table Migration:** Replaced restricted Database GUCs with a `system_config` table for project credentials.
+- [x] **Reliable Cron Workers:** Hardened `automated-synthesis` and `proactive-briefings` to use table-based lookups.
+- [x] **Diagnostic SOP:** Authored an `investigation-guide.md` for Edge Function execution debugging.
+
 ---
 
 ## Future Horizons (Prioritized)

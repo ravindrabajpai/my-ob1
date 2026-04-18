@@ -81,7 +81,7 @@ Background Processing Edge Functions:
 ```bash
 git clone https://github.com/YOUR_USERNAME/open-brain.git
 cd open-brain
-npx supabase link --project-ref YOUR_PROJECT_REF
+npx supabase link --project-ref YOUR_PROJECT_REF --workdir .
 ```
 
 ### 2. Set Secrets
@@ -127,6 +127,35 @@ npx supabase functions deploy open-brain-mcp --no-verify-jwt --workdir .
 1. Go to Supabase Dashboard → **Storage** → **New Bucket**
 2. Name it `artifacts`
 3. Set it to public (or configure RLS as needed)
+
+### 7. Configure Project Credentials
+
+For scheduled jobs (Automated Synthesis, Proactive Briefings) to work in production, you must store your project credentials in the `system_config` table.
+
+Run this SQL in your Supabase Dashboard:
+```sql
+INSERT INTO public.system_config (key, value) VALUES
+('project_ref', 'your-actual-project-ref'),
+('service_role_key', 'your-actual-service-role-key')
+ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value;
+```
+
+---
+
+## Applying Changes
+
+Whenever you modify the database schema or Edge Functions, use the following commands to synchronize your remote project:
+
+### 1. Link & Push Database Migrations
+```bash
+npx supabase link --project-ref YOUR_PROJECT_REF --workdir .
+npx supabase db push --workdir .
+```
+
+### 2. Deploy Modified Functions
+```bash
+npx supabase functions deploy <function-name> --no-verify-jwt --workdir .
+```
 
 ---
 
