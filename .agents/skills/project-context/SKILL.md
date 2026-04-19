@@ -92,6 +92,8 @@ Slack Message (+ optional file attachments)
 | Phase 13: Taste Preferences | ✅ Complete | Explicit WANT/REJECT guardrails replacing general goals mapping. |
 | Phase 14: Standalone Automations | ✅ Complete | Proactive mentor Slack briefings and strict SHA-256 ingestion deduplication. |
 | Phase 15: Wisdom Verticals Framework | ✅ Complete | Modular, scalable domain extensions. First vertical: `learning` deployed. |
+| Phase 16: System Observability & Persistent Configuration | ✅ Complete | `system_config` table, hardened cron workers, investigation guide authored. |
+| Phase 17: Advanced Inbound Processing & Context Routing | ✅ Complete | Adaptive Capture Classification (confidence-gated `ingest-thought`) + BYOC (`work-operating-model-mcp` Edge Function, five-layer interview, portable context bundle). |
 
 **What is NOT yet built** (see [roadmap.md](./roadmap.md) for details):
 *(All core phases and initial vertical infrastructure are deployed)*
@@ -130,6 +132,9 @@ my-ob1/
 │   │   ├── process-artifact/
 │   │   │   ├── index.ts                # Async background job for multi-modal OCR text extraction
 │   │   │   └── deno.json
+│   │   ├── work-operating-model-mcp/
+│   │   │   ├── index.ts                # BYOC: five-layer interview + portable profile export
+│   │   │   └── deno.json
 │   │   └── open-brain-mcp/
 │   │       ├── index.ts                # MCP server (14 tools) via Hono + StreamableHTTPTransport
 │   │       └── deno.json
@@ -147,7 +152,9 @@ my-ob1/
 │       ├── 011_proactive_briefings_cron.sql # Daily briefings schedule
 │       ├── 012_wisdom_vertical_framework_and_learning.sql # Learning vertical schema
 │       ├── 013_automated_synthesis_cron.sql # Weekly synthesis schedule
-│       └── 014_system_config.sql # Persistent configuration table
+│       ├── 014_system_config.sql # Persistent configuration table
+│       ├── 015_adaptive_capture_classification.sql # Confidence-gated learning tables
+│       └── 016_work_operating_model.sql # BYOC: operating model tables + RPCs
 ├── mcp-server/                         # UNUSED — MCP lives in supabase/functions/open-brain-mcp
 ├── .agents/
 │   ├── skills/
@@ -165,6 +172,8 @@ my-ob1/
 │   │   │   └── scripts/ingest.ts
 │   │   ├── research-synthesis/
 │   │   │   └── SKILL.md                    # Constraints for semantic queries
+│   │   ├── work-operating-model/
+│   │   │   └── SKILL.md                    # BYOC five-layer interview + portable bundle
 │   │   └── n-agentic-harness/
 │   │       └── SKILL.md                    # Tool boundaries and definitions
 │   ├── workflows/

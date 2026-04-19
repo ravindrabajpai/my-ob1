@@ -25,6 +25,8 @@ The database is **Supabase PostgreSQL** with the `pgvector` extension for semant
 | `012_wisdom_vertical_framework_and_learning.sql` | Creates `learning_topics`, `memory_learning_topics`, and `learning_milestones` tables for the Learning vertical. |
 | `013_automated_synthesis_cron.sql` | Schedules the weekly synthesis report to run every Friday via pg_cron. |
 | `014_system_config.sql` | `system_config` table for persistent configuration (replaces restricted GUCs). |
+| `015_adaptive_capture_classification.sql` | Adds `capture_thresholds`, `classification_outcomes`, `correction_learnings`, and `ab_comparisons` tables for confidence-gated ingestion learning loop. |
+| `016_work_operating_model.sql` | Adds `operating_model_profiles`, `operating_model_sessions`, `operating_model_layer_checkpoints`, `operating_model_entries`, and `operating_model_exports` tables, plus three RPCs for the BYOC workflow. |
 
 ---
 
@@ -249,6 +251,40 @@ merge_entities(
     source_id uuid,
     target_id uuid
 ) RETURNS VOID
+```
+
+### `operating_model_next_layer`
+
+Returns the next incomplete layer name (one of the five canonical layers) or `'review'` when all five are complete.
+
+```sql
+operating_model_next_layer(
+    p_completed_layers TEXT[]
+) RETURNS TEXT
+```
+
+### `operating_model_start_session`
+
+Creates or resumes a BYOC profile and session for a given `user_id`. Returns full session state including completed layers, pending layer, and historical checkpoints.
+
+```sql
+operating_model_start_session(
+    p_user_id UUID,
+    p_session_name TEXT DEFAULT NULL
+) RETURNS JSONB
+```
+
+### `operating_model_save_layer`
+
+Saves an approved layer checkpoint and its structured entries. Advances the session state to the next pending layer.
+
+```sql
+operating_model_save_layer(
+    p_session_id UUID,
+    p_layer TEXT,
+    p_checkpoint_summary TEXT,
+    p_entries JSONB
+) RETURNS JSONB
 ```
 
 ---

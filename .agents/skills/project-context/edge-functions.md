@@ -10,11 +10,12 @@ All server-side logic runs as **Supabase Edge Functions** written in **Deno/Type
 
 | Function | Path | Purpose |
 |----------|------|---------|
-| `ingest-thought` | `supabase/functions/ingest-thought/index.ts` | Slack webhook receiver → fast sync insert to `memories` |
+| `ingest-thought` | `supabase/functions/ingest-thought/index.ts` | Slack webhook receiver → fast sync insert to `memories` with adaptive classification gating |
 | `process-memory` | `supabase/functions/process-memory/index.ts` | Background job (triggered by `pg_net` webhook) → LLM extraction + graph ingestion |
 | `process-artifact` | `supabase/functions/process-artifact/index.ts` | Background job (triggered by `pg_net` webhook) → OCR/transcription and vector embedding |
-| `automated-synthesis` | `supabase/functions/automated-synthesis/index.ts` | Cron job (`weekly_synthesis_report`) -> generates weekly digest, saves to DB, posts to Slack |
+| `automated-synthesis` | `supabase/functions/automated-synthesis/index.ts` | Cron job (`weekly_synthesis_report`) → generates weekly digest, saves to DB, posts to Slack |
 | `proactive-briefings` | `supabase/functions/proactive-briefings/index.ts` | Cron job (sends daily Slack briefing with pending tasks and recent insights) |
+| `work-operating-model-mcp` | `supabase/functions/work-operating-model-mcp/index.ts` | REST API for BYOC five-layer interview workflow and portable context bundle export |
 | `open-brain-mcp` | `supabase/functions/open-brain-mcp/index.ts` | MCP server exposing tools to AI clients |
 | `_shared/brain-engine.ts` | `supabase/functions/_shared/brain-engine.ts` | Shared AI module (embeddings, metadata extraction, goal evaluation) |
 
@@ -74,7 +75,13 @@ All LLM operations are centralized here. Both Edge Functions import from this mo
 4. Filter: only process messages from SLACK_CAPTURE_CHANNEL, no subtypes, no bot messages
 5. Check for pref:/goal:/principle:/done:/complete: prefix → direct structured routing to taste_preferences or tasks table
 6. Generate SHA-256 hash of message content (strictly based on text, no timestamp, to categorically block duplicates)
-7. Insert memory block to `memories` with `slack_metadata` and `content_hash` -> return 200 OK instantly (ignores unique constraints on duplicate).
+7. [Phase 17] Classify capture type via LLM with a 0–10 confidence score:
+   a. Call `classifyCapture()` → returns { type, confidence }
+   b. If confidence < 9 (CONSISTENCY_CUTOFF), run a second pass. If types disagree, apply 0.6 penalty multiplier.
+   c. Look up per-type threshold from `capture_thresholds` (defaults to 0.75 if not seeded).
+   d. If confidence/10 ≥ threshold → use classified type. Otherwise → fall back to "observation".
+8. Insert memory block to `memories` with classified type, `slack_metadata` and `content_hash`.
+9. [Async, non-blocking] Record outcome in `classification_outcomes`; nudge threshold down by 0.02 (positive feedback on Slack path).
 ```
 
 ### Full Graph Ingestion Pipeline (`process-memory`)
@@ -182,6 +189,7 @@ npx supabase functions deploy process-memory --no-verify-jwt --workdir .
 npx supabase functions deploy process-artifact --no-verify-jwt --workdir .
 npx supabase functions deploy automated-synthesis --no-verify-jwt --workdir .
 npx supabase functions deploy proactive-briefings --no-verify-jwt --workdir .
+npx supabase functions deploy work-operating-model-mcp --no-verify-jwt --workdir .
 npx supabase functions deploy open-brain-mcp --no-verify-jwt --workdir .
 ```
 
@@ -190,6 +198,7 @@ npx supabase functions deploy open-brain-mcp --no-verify-jwt --workdir .
 | Function | URL Pattern |
 |----------|-------------|
 | `ingest-thought` | `https://<PROJECT_REF>.supabase.co/functions/v1/ingest-thought` |
+| `work-operating-model-mcp` | `https://<PROJECT_REF>.supabase.co/functions/v1/work-operating-model-mcp?key=<MCP_ACCESS_KEY>` |
 | `open-brain-mcp` | `https://<PROJECT_REF>.supabase.co/functions/v1/open-brain-mcp?key=<MCP_ACCESS_KEY>` |
 
 ---

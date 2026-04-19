@@ -45,6 +45,105 @@ async function verifySlackSignature(req: Request, rawBody: string): Promise<bool
     return generatedSignature === signature;
 }
 
+// ---------------------------------------------------------------------------
+// Phase 17: Adaptive Capture Classification
+// ---------------------------------------------------------------------------
+const CAPTURE_TYPES = ["observation", "decision", "idea", "complaint", "log"] as const;
+type CaptureType = typeof CAPTURE_TYPES[number];
+
+const DEFAULT_THRESHOLD = 0.75;
+const THRESHOLD_NUDGE = 0.02;
+const THRESHOLD_MIN = 0.50;
+const THRESHOLD_MAX = 0.95;
+const CONSISTENCY_CUTOFF = 9;   // re‑run classifier if confidence below this
+const CONSISTENCY_FACTOR = 0.6; // penalty when two runs disagree
+
+interface ClassifyResult {
+    type: CaptureType;
+    confidence: number; // 0–10
+    model: string;
+}
+
+async function classifyCapture(text: string, model = "openai/gpt-4o-mini"): Promise<ClassifyResult> {
+    const OPENROUTER_API_KEY = Deno.env.get("OPENROUTER_API_KEY");
+    if (!OPENROUTER_API_KEY) {
+        // No key: skip classification, default to observation with max confidence
+        return { type: "observation", confidence: 10, model };
+    }
+
+    const systemPrompt = `You classify personal knowledge captures into one of these types: ${JSON.stringify(CAPTURE_TYPES)}.
+Return ONLY a JSON object with two fields: "type" (one of the listed types) and "confidence" (integer 0–10).
+No markdown, no extra text.`;
+
+    const userPrompt = `Classify this capture:\n"${text.slice(0, 400)}"`;
+
+    try {
+        const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                model,
+                temperature: 0.1,
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt },
+                ],
+            }),
+        });
+        const json = await resp.json();
+        const raw = json.choices?.[0]?.message?.content ?? "{}";
+        const parsed = JSON.parse(raw.replace(/```(?:json)?\s*|\s*```/g, "").trim());
+        const type = CAPTURE_TYPES.includes(parsed.type) ? parsed.type as CaptureType : "observation";
+        const confidence = Math.max(0, Math.min(10, Math.round(Number(parsed.confidence ?? 7))));
+        return { type, confidence, model };
+    } catch {
+        return { type: "observation", confidence: 7, model };
+    }
+}
+
+async function getThreshold(itemType: string): Promise<number> {
+    const { data } = await supabase
+        .from("capture_thresholds")
+        .select("threshold")
+        .eq("item_type", itemType)
+        .maybeSingle();
+    return data ? Number(data.threshold) : DEFAULT_THRESHOLD;
+}
+
+async function nudgeThreshold(itemType: string, accepted: boolean): Promise<void> {
+    const current = await getThreshold(itemType);
+    const { data: row } = await supabase
+        .from("capture_thresholds")
+        .select("sample_count")
+        .eq("item_type", itemType)
+        .maybeSingle();
+    const delta = accepted ? -THRESHOLD_NUDGE : +THRESHOLD_NUDGE;
+    const newVal = Math.max(THRESHOLD_MIN, Math.min(THRESHOLD_MAX, current + delta));
+    await supabase.from("capture_thresholds").upsert({
+        item_type: itemType,
+        threshold: newVal,
+        sample_count: (row?.sample_count ?? 0) + 1,
+        updated_at: new Date().toISOString(),
+    }, { onConflict: "item_type" });
+}
+
+async function recordOutcome(classified: ClassifyResult, memoryId: string | null): Promise<void> {
+    await supabase.from("classification_outcomes").insert({
+        memory_id: memoryId,
+        model: classified.model,
+        item_type: classified.type,
+        confidence: classified.confidence,
+        auto_classified: true,  // Slack ingestion is always auto
+        user_accepted: true,  // Accepted by default (Slack path has no confirmation loop)
+    });
+    // Nudge threshold positively — auto-accepted by design on Slack path
+    await nudgeThreshold(classified.type, true);
+}
+// ---------------------------------------------------------------------------
+
 Deno.serve(async (req: Request): Promise<Response> => {
     try {
         const rawBody = await req.text();
@@ -121,23 +220,50 @@ Deno.serve(async (req: Request): Promise<Response> => {
             return new Response("ok", { status: 200 });
         }
 
+        // SHA-256 deduplication hash
         const hashData = new TextEncoder().encode(messageText);
         const hashBuffer = await crypto.subtle.digest("SHA-256", hashData);
         const contentHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
 
-        // 1. Insert Memory IMMEDIATELY (Async Ingestion - Phase 1)
-        // Background extraction handled by pg_net webhook calling `process-memory`
-        const { error: memoryError } = await supabase.from("memories").insert({
-            content: messageText,
-            content_hash: contentHash,
-            type: "observation", // Default until process-memory updates it
-            embedding: null, // process-memory will compute this
-            slack_metadata: {
-                channel,
-                ts: messageTs,
-                files: event.files || []
+        // ---------------------------------------------------------------------------
+        // Phase 17: Classify the capture type with confidence gating
+        // ---------------------------------------------------------------------------
+        let classified = await classifyCapture(messageText);
+
+        // Optional consistency check: if confidence is low, run a second pass
+        if (classified.confidence < CONSISTENCY_CUTOFF) {
+            const second = await classifyCapture(messageText);
+            if (second.type !== classified.type) {
+                classified = {
+                    ...classified,
+                    confidence: Math.round(classified.confidence * CONSISTENCY_FACTOR),
+                };
             }
-        });
+        }
+
+        const threshold = await getThreshold(classified.type);
+        const confident = (classified.confidence / 10) >= threshold;
+        // On the Slack path we always proceed (no interactive confirmation loop available).
+        // We record auto_classified=true and nudge the threshold as "accepted".
+        // ---------------------------------------------------------------------------
+
+        // Insert Memory IMMEDIATELY (Async Ingestion)
+        // Background extraction handled by pg_net webhook calling `process-memory`
+        const { data: memoryData, error: memoryError } = await supabase
+            .from("memories")
+            .insert({
+                content: messageText,
+                content_hash: contentHash,
+                type: confident ? classified.type : "observation",
+                embedding: null, // process-memory will compute this
+                slack_metadata: {
+                    channel,
+                    ts: messageTs,
+                    files: event.files || []
+                }
+            })
+            .select("id")
+            .single();
 
         if (memoryError) {
             if (memoryError.code === "23505") { // UNIQUE_VIOLATION
@@ -148,6 +274,9 @@ Deno.serve(async (req: Request): Promise<Response> => {
             await replyInSlack(channel, messageTs, `Failed to capture: ${memoryError.message}`);
             return new Response("error", { status: 500 });
         }
+
+        // Record classification outcome asynchronously (non-blocking)
+        recordOutcome(classified, memoryData?.id ?? null).catch(console.error);
 
         // Return immediately to avoid Slack timeouts
         // process-memory Edge Function will send the confirmation reply

@@ -106,11 +106,21 @@
 - [x] **Reliable Cron Workers:** Hardened `automated-synthesis` and `proactive-briefings` to use table-based lookups.
 - [x] **Diagnostic SOP:** Authored an `investigation-guide.md` for Edge Function execution debugging.
 
+### Phase 17: Advanced Inbound Processing & Context Routing
+- [x] **Adaptive Capture Classification:** Added confidence gating on the `ingest-thought` Edge Function. The LLM now classifies capture type with a 0–10 confidence score, compares against per-type adaptive thresholds stored in `capture_thresholds`, and records outcomes in `classification_outcomes`. Thresholds self-adjust via a ±0.02 nudge loop, clamped 0.50–0.95.
+- [x] **Bring-Your-Own-Context (BYOC):** Deployed `work-operating-model-mcp` Edge Function implementing a five-layer interview workflow (`operating_rhythms`, `recurring_decisions`, `dependencies`, `institutional_knowledge`, `friction`). Generates five portable context artifacts (`USER.md`, `SOUL.md`, `HEARTBEAT.md`, `operating-model.json`, `schedule-recommendations.json`). Backed by `operating_model_profiles/sessions/layer_checkpoints/entries/exports` tables and three RPCs. Work Operating Model skill added to `.agents/skills/`.
+
 ---
 
 ## Future Horizons (Prioritized)
 
+### Phase 18: Application-Layer Wisdom Verticals & Extensions
+- [ ] **Repository Learning Coach:** Build a frontend app/UI bridging codebases to the brain for structured learning and code onboarding.
+- [ ] **Infographic Generation:** Create a background job to generate visual summaries from the graph.
 
+### Phase 19: Explicit Lifecycle & Metacognitive Operating Models
+- [ ] **Formalized Workflow Statuses:** Expand task states beyond binary completion to track stages (e.g., `in_progress`, `blocked`, `deferred`).
+- [ ] **World-Model Diagnostic & Signal Diffs:** Integrate automated contradiction auditing and drift detection into the `automated-synthesis` pipeline.
 
 ### Deferred / Icebox
 
