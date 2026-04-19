@@ -1,5 +1,23 @@
 # Open Brain Release Notes
 
+## Phase 18: Application-Layer Wisdom Verticals & Extensions
+**Date**: April 19, 2026
+
+Phase 18 expanded the Open Brain beyond the ingestion pipeline into a user-facing application layer, introducing the Repo Learning Coach and the Infographic Generator.
+
+**Key Changes:**
+1. **Repository Learning Coach (`dashboards/repo-learning-coach/`)**:
+   - Deployed a full-stack Express + React application for structured learning about the codebase.
+   - **Bridge Architecture**: The app uses the `open-brain-mcp` Edge Function as its primary backend, performing semantic lookups (`search_memories`) and capturing takeaways (`capture_memory`) via JSON-RPC over HTTP.
+   - Includes 3 native lessons on my-ob1 architecture and schema.
+2. **Learning Schema Migration (`018_repo_learning_coach.sql`)**: 10 new tables (`repo_learning_*`) for tracking progress, quizzes, and research documents, with full Global RLS lockdown.
+3. **Infographic Generator (`.agents/skills/infographic-generator/`)**:
+   - Ported the prompt-writing and image-generation skill to the project.
+   - Integrated with the Knowledge Graph via MCP tools for semantic concept retrieval.
+4.  **Deployment DX**: Standardized Node 25+ `--env-file` pattern for local dashboard development.
+
+---
+
 ## Phase 4: Multi-modal Artifacts, Threads & Active Mentoring
 **Date**: March 28, 2026
 

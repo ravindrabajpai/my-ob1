@@ -34,16 +34,26 @@ Upload an image of a whiteboard, a screenshot of code, or a PDF.
 ### 🛑 Smart Deduplication
 If you send the exact same text twice, the system will **ignore** the second attempt. This protects your Knowledge Graph from accidental double-triggers and Slack delivery retries.
 
+### ⚖️ Adaptive Capture (Phase 17)
+The system now classifies your thoughts (observation, decision, idea, etc.) with a confidence score.
+- **I'm sure:** If the system is confident, it applies the classification immediately.
+- **I'm unsure:** If confidence is low, the system runs a second evaluation pass. If disagreement persists, it defaults to a safe "observation" state to avoid corrupting your signals.
+- **Self-Correcting:** As you use the system, the thresholds for these checks automatically adjust (nudge loop) based on successful captures.
+
 ---
 
 ## 3. Interactive Slack Commmands (Prefix Routing)
 You can directly command the brain by using specific prefixes:
 
-### ✅ Task Management
-To complete a task directly from Slack:
-> **`done: <task description snippet>`**
-> *Example:* `done: AI roadmap`
-*   *Effect:* Searches for a pending "AI roadmap" task and marks it as **completed**.
+### ✅ Task Lifecycle (Phase 19)
+Tasks now follow a formal lifecycle. You can move tasks between stages by prefixing:
+- **`done: <task>`** — Mark as **completed**.
+- **`doing: <task>`** — Mark as **in_progress**.
+- **`block: <task>`** — Mark as **blocked**.
+- **`defer: <task>`** — Mark as **deferred**.
+
+*Example:* `block: finalize UI design`
+*Effect:* Searches for that task and moves it to the `blocked` status.
 
 ### 🎯 Setting Goals & Principles
 To establish your strategic foundation:
@@ -65,11 +75,15 @@ To create guardrails for the Mentor persona:
 Specialized "verticals" track niche data beyond standard tasks and entities.
 
 ### 📚 Learning Vertical
-When you share progress on a skill:
-> *"I've mastered memory management in Deno today!"*
-*   **Trigger:** Included automatically if your message relates to learning a skill.
-*   **Confirmation:** `📚 Learning: Triggered`
-*   **Registry:** Persists the topic, your mastery status, and your latest milestone achievements.
+Specialized tracking for skills. Matches messages relating to learning or mastery.
+- **Trigger:** Included automatically if your message relates to learning a skill.
+- **Confirmation:** `📚 Learning: Updated`
+- **Dashboard:** Use the **Repo Learning Coach** (see Section 5) to view your full curriculum and mastery map.
+
+### 📊 Infographic Generation (Phase 18)
+Turn your research or memories into visual infographics.
+- **Invocation:** Ask your AI assistant (Claude/Cursor) to "generate an infographic from my latest research on X."
+- **Result:** The system writes verbose visual prompts, calls the Gemini API, and saves the resulting image to the `media/` folder.
 
 ---
 
@@ -81,18 +95,30 @@ The real power of **my-ob1** is using it as an external knowledge source for AI 
 
 ### 🛠️ Key Tools for Your AI:
 *   **`search_memories`**: Perform semantic search over your entire history.
-*   **`list_tasks`**: View your active to-do list.
+*   **`list_tasks`**: View your active to-do list with life-cycle statuses.
 *   **`capture_memory`**: Allow your AI assistant to "remember" its findings directly into your brain.
 *   **`list_learning_topics`**: Query your progress in the Learning vertical.
+*   **`get_recent_synthesis`**: Fetch the latest weekly report including drift detection notes.
 
 ---
 
-## 6. Automated Synthesis
-Every week, the brain performs an **Automated Synthesis**:
+## 6. Repo Learning Coach (Dashboard)
+A dedicated web interface for structured learning and codebase onboarding.
+- **URL:** `http://localhost:5173` (when running locally)
+- **Features:** 
+    - **Lessons:** Guided walkthroughs of the my-ob1 architecture.
+    - **Quizzes:** Validate your understanding of the schema and extension patterns.
+    - **Research:** Deep-dives into the project context files.
+    - **Brain Bridge:** See linked memories from your Open Brain while you learn.
+
+---
+
+ एवरी वीक, द ब्रेन परफॉर्म्स एन **Automated Synthesis**:
 1.  Analyzes the last 7 days of capture.
 2.  Evaluates adherence to your **Taste Preferences**.
-3.  Drafts an **Executive Digest** (Themes, Alignment, Priorities).
-4.  Posts the report directly to your Slack channel.
+3.  **Contradiction Auditing:** Checks if new thoughts conflict with previous plans or beliefs.
+4.  **Strategic Drift detection:** Flags if daily activity is drifting away from your long-term goals.
+5.  Posts an **Executive Digest** (Themes, Alignment, Priorities) directly to your Slack channel.
 
 ---
 

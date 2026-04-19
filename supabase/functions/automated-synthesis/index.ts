@@ -45,30 +45,35 @@ Deno.serve(async (req: Request): Promise<Response> => {
             { data: tasks, error: taskError },
             { data: insights, error: insightError },
             { data: activeGoals, error: goalError },
+            { data: previousReports, error: prevRepError },
         ] = await Promise.all([
             supabase.from("memories").select("content, type, created_at").gte("created_at", startStr),
             supabase.from("tasks").select("description, status").eq("status", "pending"), // Want open tasks
             supabase.from("system_insights").select("content").gte("created_at", startStr),
             supabase.from("taste_preferences").select("want, reject").eq("status", "active"),
+            supabase.from("synthesis_reports").select("content").lt("created_at", startStr).order("created_at", { ascending: false }).limit(1),
         ]);
 
-        if (memError || taskError || insightError || goalError) {
-            console.error("Database fetch error:", { memError, taskError, insightError, goalError });
+        if (memError || taskError || insightError || goalError || prevRepError) {
+            console.error("Database fetch error:", { memError, taskError, insightError, goalError, prevRepError });
             return new Response("Database fetch error", { status: 500 });
         }
 
-        console.log(`Data counts: Memories: ${memories?.length || 0}, Tasks: ${tasks?.length || 0}, Insights: ${insights?.length || 0}, Goals: ${activeGoals?.length || 0}`);
+        console.log(`Data counts: Memories: ${memories?.length || 0}, Tasks: ${tasks?.length || 0}, Insights: ${insights?.length || 0}, Goals: ${activeGoals?.length || 0}, PrevReport: ${previousReports?.length || 0}`);
 
         if (!memories?.length && !tasks?.length) {
             console.log("No sufficient data found for synthesis.");
             return new Response("No sufficient data to synthesize.", { status: 200 });
         }
 
+        const previousReport = previousReports && previousReports.length > 0 ? previousReports[0] : null;
+
         const { report: reportContent, usage } = await generateSynthesis(
             memories || [],
             tasks || [],
             insights || [],
-            activeGoals || []
+            activeGoals || [],
+            previousReport
         );
 
         if (!reportContent) {

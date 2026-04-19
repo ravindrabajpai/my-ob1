@@ -9,3 +9,18 @@ node_modules/
 
 # Editor
 .vscode/
+
+# Dashboard & App components
+dashboards/repo-learning-coach/.env
+dashboards/repo-learning-coach/node_modules/
+dashboards/repo-learning-coach/dist/
+
+# Infographic Generator artifacts
+media/
+infographic-prompts/
+*.tsbuildinfo
+
+# General sensitivity
+.env
+.env.*
+!.env.example

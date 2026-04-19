@@ -116,7 +116,7 @@ export async function evaluateAgainstTastePreferences(memoryText: string, prefer
     return { insight, usage: d.usage || null };
 }
 
-export async function generateSynthesis(memories: any[], tasks: any[], insights: any[], activePreferences: any[]): Promise<{ report: string | null, usage: any }> {
+export async function generateSynthesis(memories: any[], tasks: any[], insights: any[], activePreferences: any[], previousReport: any | null = null): Promise<{ report: string | null, usage: any }> {
     const prompt = `
 You are an executive summary assistant analyzing the user's weekly brain dump.
 
@@ -124,6 +124,9 @@ Below is the raw data captured over the last week:
 ---
 ACTIVE TASTE PREFERENCES:
 ${activePreferences.map((p: any) => `- WANT: ${p.want} | REJECT: ${p.reject}`).join("\n")}
+
+PREVIOUS SYNTHESIS REPORT:
+${previousReport?.content ? previousReport.content : "None available (first run)."}
 
 NEW THOUGHTS/OBSERVATIONS:
 ${memories.map((m: any) => `- [${m.type}] ${m.content}`).join("\n")}
@@ -135,10 +138,11 @@ SYSTEM MENTORSHIP INSIGHTS GENERATED:
 ${insights.map((i: any) => `- ${i.content}`).join("\n")}
 ---
 
-Write a concise, high-level "Weekly Synthesis Report" (in Markdown). Include:
+Write a concise, high-level "Weekly Synthesis Report" (in Markdown). You MUST include exactly these 4 sections:
 1. **Emerging Themes**: What patterns or recurring ideas are appearing in their thoughts?
 2. **Preference Alignment**: Are they actually adhering to their active taste preferences, or getting distracted?
 3. **Action Priority**: What are the top 2-3 tasks they should tackle next week based on their preferences and thoughts?
+4. **Contradictions & Drift Audit**: Identify any contradictions between current thoughts and past actions/preferences or the previous report, and explicitly detect any strategic drift or focal changes over time. If no drift is detected, explicitly state "No meaningful strategic drift detected this week."
 
 Be direct, insightful, and avoid unnecessary filler. Use modern, clean markdown formatting.
 `;

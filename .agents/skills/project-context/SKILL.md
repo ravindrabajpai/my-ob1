@@ -94,6 +94,8 @@ Slack Message (+ optional file attachments)
 | Phase 15: Wisdom Verticals Framework | ✅ Complete | Modular, scalable domain extensions. First vertical: `learning` deployed. |
 | Phase 16: System Observability & Persistent Configuration | ✅ Complete | `system_config` table, hardened cron workers, investigation guide authored. |
 | Phase 17: Advanced Inbound Processing & Context Routing | ✅ Complete | Adaptive Capture Classification (confidence-gated `ingest-thought`) + BYOC (`work-operating-model-mcp` Edge Function, five-layer interview, portable context bundle). |
+| Phase 19: Explicit Lifecycle & Metacognitive Operating Models | ✅ Complete | Expanded task lifecycle statuses and World-Model drift/contradiction detection in the `automated-synthesis` pipeline. |
+| Phase 18: Application-Layer Wisdom Verticals & Extensions | ✅ Complete | `dashboards/repo-learning-coach/` (Express + React learning app, Brain Bridge via MCP HTTP). Infographic Generator skill at `.agents/skills/infographic-generator/`. Migration `018_repo_learning_coach.sql`. |
 
 **What is NOT yet built** (see [roadmap.md](./roadmap.md) for details):
 *(All core phases and initial vertical infrastructure are deployed)*
@@ -154,8 +156,16 @@ my-ob1/
 │       ├── 013_automated_synthesis_cron.sql # Weekly synthesis schedule
 │       ├── 014_system_config.sql # Persistent configuration table
 │       ├── 015_adaptive_capture_classification.sql # Confidence-gated learning tables
-│       └── 016_work_operating_model.sql # BYOC: operating model tables + RPCs
+│       ├── 016_work_operating_model.sql # BYOC: operating model tables + RPCs
+│       └── 018_repo_learning_coach.sql # 10 repo_learning_* tables for the dashboard app
 ├── mcp-server/                         # UNUSED — MCP lives in supabase/functions/open-brain-mcp
+├── dashboards/
+│   └── repo-learning-coach/             # Express server + React Vite app for structured learning
+│       ├── server/                      # Express server: db.ts, brain.ts (MCP bridge), content-loader
+│       ├── src/                         # React frontend
+│       ├── curriculum/lessons/          # Markdown lesson files with quiz frontmatter
+│       ├── research/                    # Markdown research docs
+│       └── repo-learning.config.ts      # Project identity and directory config
 ├── .agents/
 │   ├── skills/
 │   │   ├── project-context/
@@ -174,8 +184,11 @@ my-ob1/
 │   │   │   └── SKILL.md                    # Constraints for semantic queries
 │   │   ├── work-operating-model/
 │   │   │   └── SKILL.md                    # BYOC five-layer interview + portable bundle
-│   │   └── n-agentic-harness/
+│   │   ├── n-agentic-harness/
 │   │       └── SKILL.md                    # Tool boundaries and definitions
+│   │   └── infographic-generator/
+│   │       ├── SKILL.md                    # Generate infographics from research/memories
+│   │       └── generate.py                 # Gemini API image generation script
 │   ├── workflows/
 │   │   └── development-loop.yaml       # Standard feature dev workflow
 │   └── rules/
@@ -209,3 +222,4 @@ my-ob1/
 | `MCP_ACCESS_KEY` | Authentication for MCP endpoint |
 | `SUPABASE_URL` | Auto-provided by Supabase runtime |
 | `SUPABASE_SERVICE_ROLE_KEY` | Auto-provided by Supabase runtime |
+| `GEMINI_API_KEY` | Gemini API for infographic image generation (free tier; set in local shell for skill, not needed in Edge Functions) |

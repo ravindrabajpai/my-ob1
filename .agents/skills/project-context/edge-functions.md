@@ -13,7 +13,7 @@ All server-side logic runs as **Supabase Edge Functions** written in **Deno/Type
 | `ingest-thought` | `supabase/functions/ingest-thought/index.ts` | Slack webhook receiver → fast sync insert to `memories` with adaptive classification gating |
 | `process-memory` | `supabase/functions/process-memory/index.ts` | Background job (triggered by `pg_net` webhook) → LLM extraction + graph ingestion |
 | `process-artifact` | `supabase/functions/process-artifact/index.ts` | Background job (triggered by `pg_net` webhook) → OCR/transcription and vector embedding |
-| `automated-synthesis` | `supabase/functions/automated-synthesis/index.ts` | Cron job (`weekly_synthesis_report`) → generates weekly digest, saves to DB, posts to Slack |
+| `automated-synthesis` | `supabase/functions/automated-synthesis/index.ts` | Cron job (`weekly_synthesis_report`) → generates weekly digest with drift detection, saves to DB, posts to Slack |
 | `proactive-briefings` | `supabase/functions/proactive-briefings/index.ts` | Cron job (sends daily Slack briefing with pending tasks and recent insights) |
 | `work-operating-model-mcp` | `supabase/functions/work-operating-model-mcp/index.ts` | REST API for BYOC five-layer interview workflow and portable context bundle export |
 | `open-brain-mcp` | `supabase/functions/open-brain-mcp/index.ts` | MCP server exposing tools to AI clients |
@@ -33,7 +33,7 @@ All LLM operations are centralized here. Both Edge Functions import from this mo
 | `extractMetadata(text)` | `openai/gpt-4o-mini` | Extracts structured JSON: `memory_type`, `extracted_tasks`, `associated_threads`, `entities_detected`, `strategic_alignment`, `wisdom_extensions` (Returns `{ data, usage }`) |
 | `extractImageText(imageUrl)`| `openai/gpt-4o-mini` | Performs OCR to extract text and a concise summary from an image URL (Returns `{ text, usage }`) |
 | `evaluateAgainstTastePreferences(memoryText, preferences[])` | `openai/gpt-4o-mini` | Evaluates against active taste preferences using their WANT/REJECT guardrails; returns insight + usage. |
-| `generateSynthesis(memories, tasks, insights, activePreferences)` | `openai/gpt-4o-mini` | Extracts patterns and summarizes a weekly backlog against structured preferences into a single markdown digest (Returns `{ report, usage }`) |
+| `generateSynthesis(memories, tasks, insights, activePreferences, previousReport)` | `openai/gpt-4o-mini` | Extracts patterns, summarizes a weekly backlog against structured preferences into a single markdown digest, and performs contradiction auditing & signal diffs against the previous report. (Returns `{ report, usage }`) |
 
 ### LLM Output Schema (from `extractMetadata`)
 
@@ -149,6 +149,7 @@ Captured as *observation*
 | `memory_stats` | *(none)* | Dashboard: total memories, tasks, entities, type breakdown, date range. |
 | `capture_memory` | `content` (string) | Full graph ingestion from any AI client — embedding, metadata extraction, task/entity population. |
 | `complete_task` | `task_id` (string/uuid) | Mark a task as completed. (Moved to queue) |
+| `update_task_status` | `task_id` (string), `status` (string) | Move a task to a different formalized workflow stage (pending, in_progress, blocked, deferred, completed). (Moved to queue) |
 | `update_task_deadline` | `task_id` (string), `due_date` (string) | Reschedule a task to a new due date. (Moved to queue) |
 | `merge_entities` | `source_entity_id` (string), `target_entity_id` (string) | Deduplicate Knowledge Graph by merging source into target securely. (Moved to queue) |
 | `add_taste_preference` | `preference_name`, `domain`, `want`, `reject`, `constraint_type` | Add strict taste preference with boundary parameters. (Moved to queue) |
@@ -162,6 +163,16 @@ Captured as *observation*
 | `list_learning_topics` | `limit?` (20) | List topics tracked in the Learning Wisdom Vertical. |
 | `add_learning_milestone` | `topic_id`, `description` | Append a milestone locally to a learning topic via queue. |
 | `update_mastery_status` | `topic_id`, `status` | Adjust mastery state of a learning topic via queue. |
+
+---
+
+## 4. Bridge Pattern (Application-Layer)
+
+Applications living in `dashboards/` (like the **Repo Learning Coach**) do not connect to the database directly for Knowledge Graph mutations or semantic search. Instead, they use a **Brain Bridge** that reaches back into the Open Brain via the `open-brain-mcp` Edge Function.
+
+- **Request Format:** Standard JSON-RPC 2.0 via HTTP POST.
+- **Authentication:** `x-brain-key` header matching `MCP_ACCESS_KEY`.
+- **Primary Tools Used:** `search_memories`, `capture_memory`.
 
 ### Key Implementation Details
 

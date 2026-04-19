@@ -364,6 +364,31 @@ server.registerTool(
   }
 );
 
+// Tool 5b: Update Task Status
+server.registerTool(
+  "update_task_status",
+  {
+    title: "Update Task Status",
+    description: "Move a task to a different formalized workflow stage. Handled via queue.",
+    inputSchema: {
+      task_id: z.string().uuid().describe("The UUID of the task to update"),
+      status: z.enum(["pending", "in_progress", "blocked", "deferred", "completed"]).describe("The new status for the task"),
+    },
+  },
+  async ({ task_id, status }: { task_id: string, status: string }) => {
+    try {
+      const { error } = await supabase.from("mcp_operation_queue").insert({
+        operation_type: "update_task_status",
+        payload: { task_id, status }
+      });
+      if (error) throw error;
+      return { content: [{ type: "text" as const, text: `Task status update request for ${task_id} to ${status} added to the approval queue.` }] };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
 // Tool 6: Update Task Deadline
 server.registerTool(
   "update_task_deadline",
@@ -495,7 +520,7 @@ server.registerTool(
     title: "List Tasks",
     description: "Filter and list action items from the Knowledge Graph.",
     inputSchema: {
-      status: z.enum(["pending", "completed"]).optional().describe("Filter by task status"),
+      status: z.enum(["pending", "in_progress", "blocked", "deferred", "completed"]).optional().describe("Filter by task status"),
       limit: z.number().optional().default(20),
     },
   },

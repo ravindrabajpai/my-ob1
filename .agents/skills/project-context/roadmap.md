@@ -110,17 +110,18 @@
 - [x] **Adaptive Capture Classification:** Added confidence gating on the `ingest-thought` Edge Function. The LLM now classifies capture type with a 0–10 confidence score, compares against per-type adaptive thresholds stored in `capture_thresholds`, and records outcomes in `classification_outcomes`. Thresholds self-adjust via a ±0.02 nudge loop, clamped 0.50–0.95.
 - [x] **Bring-Your-Own-Context (BYOC):** Deployed `work-operating-model-mcp` Edge Function implementing a five-layer interview workflow (`operating_rhythms`, `recurring_decisions`, `dependencies`, `institutional_knowledge`, `friction`). Generates five portable context artifacts (`USER.md`, `SOUL.md`, `HEARTBEAT.md`, `operating-model.json`, `schedule-recommendations.json`). Backed by `operating_model_profiles/sessions/layer_checkpoints/entries/exports` tables and three RPCs. Work Operating Model skill added to `.agents/skills/`.
 
+### Phase 18: Application-Layer Wisdom Verticals & Extensions
+- [x] **Repository Learning Coach:** Full Express + React dashboard ported from OB1 to `dashboards/repo-learning-coach/`. Key adaptation: Brain Bridge now calls `search_memories` and `capture_memory` through the `open-brain-mcp` Edge Function (MCP HTTP). 3 my-ob1 architecture lessons included. Migration `018_repo_learning_coach.sql` adds 10 `repo_learning_*` tables.
+- [x] **Infographic Generator:** Ported OB1 `generate.py` script and SKILL.md into `.agents/skills/infographic-generator/`. The skill's brain integration uses `search_memories`/`capture_memory` MCP tools natively.
+
+### Phase 19: Explicit Lifecycle & Metacognitive Operating Models
+- [x] **Formalized Workflow Statuses:** Expanded task states to include `pending`, `in_progress`, `blocked`, `deferred`, and `completed`. Added check constraint and `update_task_status` MCP tool.
+- [x] **World-Model Diagnostic & Signal Diffs:** Integrated automated contradiction auditing and strategic drift detection into the `automated-synthesis` pipeline by supplying the previous report to the synthesis engine.
+
+
 ---
 
 ## Future Horizons (Prioritized)
-
-### Phase 18: Application-Layer Wisdom Verticals & Extensions
-- [ ] **Repository Learning Coach:** Build a frontend app/UI bridging codebases to the brain for structured learning and code onboarding.
-- [ ] **Infographic Generation:** Create a background job to generate visual summaries from the graph.
-
-### Phase 19: Explicit Lifecycle & Metacognitive Operating Models
-- [ ] **Formalized Workflow Statuses:** Expand task states beyond binary completion to track stages (e.g., `in_progress`, `blocked`, `deferred`).
-- [ ] **World-Model Diagnostic & Signal Diffs:** Integrate automated contradiction auditing and drift detection into the `automated-synthesis` pipeline.
 
 ### Deferred / Icebox
 

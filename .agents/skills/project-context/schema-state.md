@@ -27,6 +27,8 @@ The database is **Supabase PostgreSQL** with the `pgvector` extension for semant
 | `014_system_config.sql` | `system_config` table for persistent configuration (replaces restricted GUCs). |
 | `015_adaptive_capture_classification.sql` | Adds `capture_thresholds`, `classification_outcomes`, `correction_learnings`, and `ab_comparisons` tables for confidence-gated ingestion learning loop. |
 | `016_work_operating_model.sql` | Adds `operating_model_profiles`, `operating_model_sessions`, `operating_model_layer_checkpoints`, `operating_model_entries`, and `operating_model_exports` tables, plus three RPCs for the BYOC workflow. |
+| `017_formalized_workflow_statuses.sql` | Formalizes workflow statuses with CHECK constraint on `tasks` table (`pending`, `in_progress`, `blocked`, `deferred`, `completed`). |
+| `018_repo_learning_coach.sql` | Creates 10 `repo_learning_*` tables for the Repo Learning Coach dashboard: `projects`, `research_documents`, `tracks`, `lessons`, `quizzes`, `quiz_questions`, `lesson_progress`, `quiz_attempts`, `quiz_responses`, `lesson_comments`. All tables have RLS enabled. |
 
 ---
 
@@ -75,7 +77,7 @@ Action items extracted by the LLM, linked to their source memory.
 | `id` | UUID (PK) | Auto-generated |
 | `memory_id` | UUID (FK → memories) | CASCADE on delete |
 | `description` | TEXT NOT NULL | The action item text |
-| `status` | TEXT | Default: `pending` |
+| `status` | TEXT | Default: `pending`. Allowed: `pending`, `in_progress`, `blocked`, `deferred`, `completed` |
 | `due_date` | TIMESTAMPTZ | Inferred by LLM, nullable |
 | `created_at` | TIMESTAMPTZ | UTC default |
 

@@ -41,9 +41,11 @@ Slack Message (+ optional file attachments)
 │             ├── memory_threads ── threads         │
 │             ├── artifacts (Supabase Storage)      │
 │             ├── system_insights                  │
-│             └── synthesis_reports                │
+│             ├── synthesis_reports                │
+│             └── learning_topics ── milestones     │
 │                                                  │
-│  goals_and_principles (mentor baseline)          │
+│  taste_preferences (strict WANT/REJECT)          │
+│  system_config (project configuration)           │
 │  match_memories() RPC (Federated vector search)  │
 └──────────────────────────────────────────────────┘
          │
@@ -54,16 +56,21 @@ Slack Message (+ optional file attachments)
 │  • list_memories         │  Filtered chronological listing
 │  • memory_stats          │  Dashboard stats (memories, tasks, entities)
 │  • capture_memory        │  Direct graph ingestion from any AI client
-│  • ...and 10 more tools  │
+│  • ...and 18 more tools  │
 └─────────────────────────┘
-         │
-         ▼
-   Any MCP Client (Claude, Antigravity, etc.)
+     │
+     ▼
+┌─────────────────────────┐
+│  Learning Coach App      │  Express + React Dashboard
+│  (Brain Bridge Pattern)  │  Connects via MCP HTTP Bridge
+└─────────────────────────┘
 
 Background Processing Edge Functions:
 • process-memory: Async LLM extraction and graph ingestion (triggered via pg_net).
 • process-artifact: OCR/Transcription for Multi-Modal attachments (triggered via pg_net).
-• automated-synthesis: Weekly digest generation and Slack reporting.
+• automated-synthesis: Weekly digest generation with drift detection.
+• proactive-briefings: Daily morning status and strategic insights.
+• work-operating-model-mcp: Five-layer interview workflow for BYOC contexts.
 ```
 
 ---
@@ -204,43 +211,45 @@ open-brain/
 ├── supabase/
 │   ├── functions/
 │   │   ├── _shared/
-│   │   │   └── brain-engine.ts        # Shared AI: embeddings, metadata extraction, goal evaluation
-│   │   ├── ingest-thought/
-│   │   ├── process-memory/            # LLM ingestion background worker
-│   │   ├── process-artifact/          # Multi-Modal extraction background worker
-│   │   ├── automated-synthesis/       # Weekly digest cron worker
-│   │   └── open-brain-mcp/            # MCP server with 14 semantic and mutation tools
+│   │   │   └── brain-engine.ts        # Shared AI: embeddings, metadata, verticals registry
+│   │   ├── ingest-thought/            # Adaptive classification (Phase 17)
+│   │   ├── process-memory/            # LLM ingestion worker with Vertical delegation
+│   │   ├── process-artifact/          # Multi-Modal extraction worker
+│   │   ├── automated-synthesis/       # Weekly digest cron (Drift detection, Signal Diffs)
+│   │   ├── proactive-briefings/       # Daily Slack briefings
+│   │   ├── work-operating-model-mcp/  # BYOC interview workflow
+│   │   └── open-brain-mcp/            # MCP server with 18 tools
 │   └── migrations/
-│       ├── 001..007...sql             # Series of migrations building out the Knowledge Graph
+│       ├── 001..018...sql             # Migrations up to Repo Learning Coach tables
+├── dashboards/
+│   └── repo-learning-coach/           # Express + React learning dashboard
 ├── .agents/
-│   ├── skills/                        # Standalone specific agent skills
-│   │   └── project-context/
-│   │       ├── SKILL.md               # Root knowledge graph index
-│   │       ├── schema-state.md        # Live database schema reference
-│   │       ├── edge-functions.md      # Edge function specifications
-│   │       └── roadmap.md             # Project roadmap
+│   ├── skills/
+│   │   ├── project-context/
+│   │   ├── infographic-generator/     # Visual summary generation skill
+│   │   ├── work-operating-model/      # BYOC context synthesis skill
+│   │   └── ...
 │   └── workflows/
 ├── README.md
 ├── RELEASE_NOTES.md
-└── .key.txt                           # Credential tracker (do NOT commit)
+└── USER_MANUAL.md
 ```
 
 ---
 
 ## Database Schema
 
-| Table | Purpose |
-|-------|---------|
 | `memories` | Core text storage with vector embeddings |
-| `tasks` | Action items with status and deadlines |
+| `tasks` | Action items with lifecycle statuses (pending, in_progress, blocked, deferred, completed) |
 | `entities` | Knowledge Graph nodes (Person, Project, Concept) |
-| `memory_entities` | Links memories ↔ entities |
 | `threads` | Active work/life streams |
-| `memory_threads` | Links memories ↔ threads |
 | `artifacts` | File attachments (images, docs) with OCR text & embeddings |
-| `goals_and_principles` | User-defined strategic goals and principles |
-| `system_insights` | AI-generated evaluations against goals |
-| `synthesis_reports` | AI-generated weekly executive summaries |
+| `taste_preferences` | Explicit WANT/REJECT guardrails |
+| `system_insights` | AI-generated evaluations against preferences |
+| `synthesis_reports` | AI-generated weekly digest with Signal Diffs and Drift Detection |
+| `learning_topics` | Domain tracking for skills (Wisdom Vertical) |
+| `repo_learning_*` | 10 tables backing the dashboard app (quizzes, progress, research) |
+| `system_config` | Persistent configuration for background workers |
 
 ---
 
