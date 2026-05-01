@@ -97,7 +97,7 @@ Slack Message (+ optional file attachments)
 | Phase 19: Explicit Lifecycle & Metacognitive Operating Models | ✅ Complete | Expanded task lifecycle statuses and World-Model drift/contradiction detection in the `automated-synthesis` pipeline. |
 | Phase 18: Application-Layer Wisdom Verticals & Extensions | ✅ Complete | `dashboards/repo-learning-coach/` (Express + React learning app, Brain Bridge via MCP HTTP). Infographic Generator skill at `.agents/skills/infographic-generator/`. Migration `018_repo_learning_coach.sql`. |
 
-**What is NOT yet built** (see [roadmap.md](./roadmap.md) for details):
+**What is NOT yet built** (see [roadmap.md](./03-ROADMAP.md) for details):
 *(All core phases and initial vertical infrastructure are deployed)*
 ---
 
@@ -107,9 +107,9 @@ Agents MUST read the relevant module file before working on that domain:
 
 | Module File | Domain | What It Covers |
 |-------------|--------|----------------|
-| [schema-state.md](./schema-state.md) | Database | All 9 tables, columns, relationships, RPC functions, and security architecture |
-| [edge-functions.md](./edge-functions.md) | Ingestion & MCP | `ingest-thought` pipeline, `open-brain-mcp` tools, `brain-engine.ts` shared module |
-| [roadmap.md](./roadmap.md) | Planning | Completed phases and prioritized future horizons |
+| [schema-state.md](./01-SCHEMA_STATE.md) | Database | All 9 tables, columns, relationships, RPC functions, and security architecture |
+| [edge-functions.md](./02-EDGE_FUNCTIONS.md) | Ingestion & MCP | `ingest-thought` pipeline, `open-brain-mcp` tools, `brain-engine.ts` shared module |
+| [roadmap.md](./03-ROADMAP.md) | Planning | Completed phases and prioritized future horizons |
 | [how-to-add-wisdom-vertical.md](./how-to-add-wisdom-vertical.md) | Extensibility | SOP for adding new Domain-Specific Extensions to the graph |
 
 ---

@@ -75,6 +75,17 @@ Background Processing Edge Functions:
 
 ---
 
+## Phase 4: Enforcing the "Doc-First" Workflow
+
+To maintain this discipline over time, adapt your prompting strategy:
+
+1. **Start tasks with an explicit plan request:**
+   *Example Prompt:* "I want to add a new edge function for processing emails. Read the docs, then draft the update to `docs/02-EDGE_FUNCTIONS.md` for my approval before you touch the `supabase/functions` code."
+2. **Enforce Markdown Artifacts:**
+   Ask Antigravity to present the proposed architecture design as an Artifact (a formatted markdown document). Review the artifact, and once approved, instruct the agent to copy that artifact into the `docs/` folder and begin coding.
+
+---
+
 ## Quick Start
 
 ### Prerequisites
