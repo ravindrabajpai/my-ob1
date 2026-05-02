@@ -41,6 +41,7 @@ All LLM operations are centralized here. Both Edge Functions import from this mo
 | `generateWikiDossier(entityName, entityType, memories)` | `openai/gpt-4o-mini` | Synthesizes a structured Markdown wiki dossier for an entity based on its linked memories. (Returns `{ dossier, usage }`) |
 | `generateThreadSummary(threadName, memories)` | `openai/gpt-4o-mini` | Consolidates a thread into a high-level Markdown summary. (Returns `{ summary, usage }`) |
 | `classifyMemoryEdge(memoryA, memoryB)` | `openai/gpt-4o-mini` | Classifies the semantic relationship between two memories. Returns `{ relation, direction, confidence, rationale, valid_from, valid_until, usage }`. Used by Phase 21 Typed Edge Classifier. |
+| `scanSensitivity(text)` | *(Regex)* | Regex-based scanner for PII/sensitivity. Returns `{ tier, reasons }`. |
 
 ### LLM Output Schema (from `extractMetadata`)
 
@@ -90,6 +91,7 @@ All LLM operations are centralized here. Both Edge Functions import from this mo
 4. Filter: only process messages from SLACK_CAPTURE_CHANNEL, no subtypes, no bot messages
 5. Check for pref:/goal:/principle:/done:/complete: prefix → direct structured routing to taste_preferences or tasks table
 6. Generate SHA-256 hash of message content (strictly based on text, no timestamp, to categorically block duplicates)
+6a.5. **[Phase 24]** Apply sensitivity scanner via `scanSensitivity()` → assign `sensitivity_tier` (`standard`, `personal`, `restricted`).
 7. [Phase 17] Classify capture type via LLM with a 0–10 confidence score:
    a. Call `classifyCapture()` → returns { type, confidence }
    b. If confidence < 9 (CONSISTENCY_CUTOFF), run a second pass. If types disagree, apply 0.6 penalty multiplier.

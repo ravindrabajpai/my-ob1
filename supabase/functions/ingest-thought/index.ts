@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { scanSensitivity } from "../_shared/brain-engine.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -226,6 +227,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
         const contentHash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
 
         // ---------------------------------------------------------------------------
+        // Phase 24: Apply sensitivity scanner before ingestion
+        // ---------------------------------------------------------------------------
+        const { tier: sensitivityTier } = scanSensitivity(messageText);
+
+        // ---------------------------------------------------------------------------
         // Phase 17: Classify the capture type with confidence gating
         // ---------------------------------------------------------------------------
         let classified = await classifyCapture(messageText);
@@ -255,6 +261,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
                 content: messageText,
                 content_hash: contentHash,
                 type: confident ? classified.type : "observation",
+                sensitivity_tier: sensitivityTier,
                 embedding: null, // process-memory will compute this
                 slack_metadata: {
                     channel,

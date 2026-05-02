@@ -142,3 +142,7 @@
 - [x] **Scheduled Job:** Configured `thread-summarizer-cron` in migration `022_thread_summarization.sql` to run every Tuesday at 3:00 AM.
 - [x] **MCP Tool:** Added `summarize_thread` tool to `open-brain-mcp` for operator-level control over summarization.
 - [x] **Local Skill:** Created `.agents/skills/thread-summarizer/` with `SKILL.md` and `summarize.ts` CLI.
+### Phase 24: Retroactive Enrichment & Sensitivity Scanning
+- [x] **Sensitivity Scanning:** Regex-based classifier `scanSensitivity(text)` in `brain-engine.ts` categorizes memories into `standard`, `personal`, or `restricted` with zero latency.
+- [x] **Ingestion Gates:** Applied sensitivity gate to `ingest-thought` (Slack) and `capture_memory` (MCP), storing results in the new `sensitivity_tier` column (migration `023_retroactive_enrichment_sensitivity.sql`).
+- [x] **Retroactive Backfill:** Created local Deno CLI skill at `.agents/skills/retroactive-enrichment/backfill.ts` to iterate historical memories, re-scan content, and update tiers via a `SECURITY DEFINER` RPC.

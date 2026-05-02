@@ -5,7 +5,7 @@ import { StreamableHTTPTransport } from "@hono/mcp";
 import { Hono } from "hono";
 import { z } from "zod";
 import { createClient } from "@supabase/supabase-js";
-import { getEmbedding, extractMetadata, evaluateAgainstTastePreferences } from "../_shared/brain-engine.ts";
+import { getEmbedding, extractMetadata, evaluateAgainstTastePreferences, scanSensitivity } from "../_shared/brain-engine.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -247,12 +247,14 @@ server.registerTool(
       ]);
 
       const meta = metadata as Record<string, any>;
+      const { tier: sensitivityTier } = scanSensitivity(content);
 
       const { data: memory, error: memoryError } = await supabase.from("memories").insert({
         content,
         content_hash: contentHash,
         embedding,
         type: meta.memory_type || "observation",
+        sensitivity_tier: sensitivityTier,
       }).select("id").single();
 
       if (memoryError || !memory) {

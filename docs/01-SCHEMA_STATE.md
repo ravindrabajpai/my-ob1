@@ -33,6 +33,8 @@ The database is **Supabase PostgreSQL** with the `pgvector` extension for semant
 | `020_typed_edge_classifier.sql` | Creates `memory_edges` table with typed relation CHECK constraint and `memory_edges_upsert` RPC for idempotent edge insertion. Phase 21 (Reasoning Graph). |
 | `021_enhanced_knowledge_graph.sql` | Creates `entity_edges` table for typed directed relationships between entities. Adds `entity_edges_upsert`, `traverse_entity_graph`, and `find_entity_path` RPCs. Phase 22 (Enhanced Knowledge Graph). |
 | `022_thread_summarization.sql` | Extends `entity_wikis` and `memory_edges` to support thread summarization dossiers and `derived_from` provenance edges. Phase 23. |
+| `023_retroactive_enrichment_sensitivity.sql` | Adds `sensitivity_tier` column to `memories` and `set_memory_sensitivity` RPC. Phase 24. |
+| `024_fix_sensitivity_column.sql` | Ensures `sensitivity_tier` column is applied (Hotfix for sequential migration sync issue). Phase 24. |
 
 ---
 
@@ -50,6 +52,7 @@ Central capture table. Every thought/observation enters here first.
 | `content_hash` | TEXT UNIQUE | SHA-256 fingerprint of content to prevent duplicate ingestion |
 | `embedding` | vector(1536) | OpenAI text-embedding-3-small output (nullable initially for async processing) |
 | `type` | TEXT | `observation`, `decision`, `idea`, `complaint`, `log` (default: `observation`) |
+| `sensitivity_tier` | TEXT | `standard`, `personal`, `restricted` (default: `standard`) |
 | `slack_metadata` | JSONB | Stores Slack `channel`, `ts`, and `files` for async Edge Function replies |
 | `processing_status` | processing_status (ENUM) | `pending`, `completed`, `failed` (default: `pending`) |
 | `processing_error` | TEXT | Stores exception trace if extraction/ingestion fails |
@@ -354,6 +357,17 @@ find_entity_path(
     p_end_entity_id     UUID,
     p_max_depth         INT DEFAULT 6
 ) RETURNS TABLE (step INT, entity_id UUID, entity_name TEXT, via_relationship TEXT)
+```
+
+### `set_memory_sensitivity`
+
+Updates the `sensitivity_tier` of a specific memory. Used by the retroactive backfill skill. `SECURITY DEFINER` (runs with service_role privileges).
+
+```sql
+set_memory_sensitivity(
+    p_memory_id UUID,
+    p_tier      TEXT
+) RETURNS VOID
 ```
 
 ### `merge_entities`

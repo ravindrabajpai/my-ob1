@@ -434,3 +434,47 @@ Be direct and analytical. If data is sparse, acknowledge it rather than inventin
         return { summary: null, usage: null };
     }
 }
+/**
+ * Regex-based sensitivity scanner. Returns the tier and matched reasons.
+ * No LLM call required — deterministic, zero-latency.
+ *
+ * Tiers:
+ *   restricted — Hard PII (SSN, passport, credit card, API keys, passwords, bank accounts)
+ *   personal   — Soft PII (health data, medications, financial details)
+ *   standard   — No sensitive patterns detected
+ */
+export function scanSensitivity(text: string): {
+    tier: "standard" | "personal" | "restricted";
+    reasons: string[];
+} {
+    const RESTRICTED_PATTERNS: [RegExp, string][] = [
+      [/\b\d{3}-?\d{2}-?\d{4}\b/, "ssn_pattern"],
+      [/\b[A-Z]{1,2}\d{6,9}\b/, "passport_pattern"],
+      [/\b\d{8,17}\b.*\b(account|routing|iban)\b/i, "bank_account"],
+      [/\b(account|routing)\b.*\b\d{8,17}\b/i, "bank_account"],
+      [/\b(sk-|pk_live_|sk_live_|ghp_|gho_|AKIA)[A-Za-z0-9]{10,}/i, "api_key"],
+      [/\bpassword\s*[:=]\s*\S+/i, "password_value"],
+      [/\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/, "credit_card"],
+    ];
+
+    const PERSONAL_PATTERNS: [RegExp, string][] = [
+      [/\b\d+\s*mg\b(?!\s*\/\s*(dL|kg|L|ml))/i, "medication_dosage"],
+      [/\b(pregabalin|metoprolol|losartan|lisinopril|aspirin|atorvastatin|sertraline|metformin|gabapentin|prednisone|insulin|warfarin)\b/i, "drug_name"],
+      [/\b(glucose|a1c|cholesterol|blood pressure|bp|hrv|bmi)\b.*\b\d+/i, "health_measurement"],
+      [/\b(diagnosed|diagnosis|prediabetic|diabetic|arrhythmia|ablation)\b/i, "medical_condition"],
+      [/\b(salary|income|net worth|401k|ira|portfolio)\b.*\b\$?\d/i, "financial_detail"],
+      [/\b\$\d{3,}[,\d]*\b/i, "financial_amount"],
+    ];
+
+    for (const [pattern, reason] of RESTRICTED_PATTERNS) {
+        if (pattern.test(text)) {
+            return { tier: "restricted", reasons: [reason] };
+        }
+    }
+    const reasons: string[] = [];
+    for (const [pattern, reason] of PERSONAL_PATTERNS) {
+        if (pattern.test(text)) reasons.push(reason);
+    }
+    if (reasons.length > 0) return { tier: "personal", reasons };
+    return { tier: "standard", reasons: [] };
+}
