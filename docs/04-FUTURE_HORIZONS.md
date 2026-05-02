@@ -4,9 +4,6 @@
 
 ---
 
-### 3. Enhanced Knowledge Graph (Explicit Entity Relationships)
-- **Description:** Extend the `process-memory` extraction prompt to identify explicit semantic relationships between entities (e.g., `works_on`, `uses`). Store these in a new `entity_edges` table to enable rich, multi-hop network queries.
-
 ### 4. Thread Summarization (Wiki Synthesis)
 - **Description:** Upgrade the `automated-synthesis` pipeline to detect dormant or excessively long threads and consolidate them into a single high-level "Summary Memory". Maintain `derived_from` links to the raw messages to drastically improve context window efficiency during vector searches.
 

@@ -87,6 +87,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
         // 3. Upsert Entities & Link
         let linkedEntitiesCount = 0;
+        const entityNameToId: Record<string, string> = {};
         if (Array.isArray(meta.entities_detected) && meta.entities_detected.length > 0) {
             for (const ent of meta.entities_detected) {
                 if (!ent.name || !ent.type) continue;
@@ -95,6 +96,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
                     .select("id").single();
 
                 if (entityData?.id) {
+                    entityNameToId[ent.name] = entityData.id;
                     await supabase.from("memory_entities").insert({
                         memory_id: memoryId,
                         entity_id: entityData.id
@@ -102,6 +104,40 @@ Deno.serve(async (req: Request): Promise<Response> => {
                     linkedEntitiesCount++;
                 } else if (entityError) {
                     console.error("Entity upsert error:", entityError);
+                }
+            }
+        }
+
+        // 3.5 Upsert Entity Edges (Phase 22: Enhanced Knowledge Graph)
+        let entityEdgesCount = 0;
+        if (Array.isArray(meta.entity_relationships) && meta.entity_relationships.length > 0) {
+            for (const rel of meta.entity_relationships) {
+                if (!rel.source || !rel.target || !rel.relationship_type) continue;
+                // Only process relationships where both entities were successfully resolved
+                const sourceId = entityNameToId[rel.source];
+                const targetId = entityNameToId[rel.target];
+                if (!sourceId || !targetId) {
+                    console.warn(`Entity edge skipped — could not resolve: "${rel.source}" or "${rel.target}"`);
+                    continue;
+                }
+                const confidence = typeof rel.confidence === "number"
+                    ? Math.min(1.0, Math.max(0.0, rel.confidence))
+                    : 1.0;
+                // Skip low-confidence relationships (threshold: 0.5)
+                if (confidence < 0.5) continue;
+
+                const { error: edgeError } = await supabase.rpc("entity_edges_upsert", {
+                    p_source_entity_id: sourceId,
+                    p_target_entity_id: targetId,
+                    p_relationship_type: rel.relationship_type,
+                    p_weight: confidence,
+                    p_properties: { rationale: rel.rationale || null },
+                    p_memory_id: memoryId,
+                });
+                if (edgeError) {
+                    console.error("Entity edge upsert error:", edgeError);
+                } else {
+                    entityEdgesCount++;
                 }
             }
         }
@@ -206,6 +242,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
             let confirmation = `Captured as *${meta.memory_type || "observation"}*`;
             if (meta.extracted_tasks?.length > 0) confirmation += `\n🎯 Tasks: ${meta.extracted_tasks.length}`;
             if (linkedEntitiesCount > 0) confirmation += `\n🔗 Entities: ${linkedEntitiesCount} linked`;
+            if (entityEdgesCount > 0) confirmation += `\n🕸️ Entity Edges: ${entityEdgesCount} relationship${entityEdgesCount > 1 ? "s" : ""} mapped`;
             if (linkedThreadsCount > 0) confirmation += `\n🧵 Threads: ${linkedThreadsCount}`;
             if (artifactCount > 0) confirmation += `\n📎 Files: ${artifactCount} saved`;
             if (triggeredVerticals.length > 0) {
@@ -220,6 +257,7 @@ Deno.serve(async (req: Request): Promise<Response> => {
 
             await replyInSlack(channel, ts, confirmation);
         }
+
 
         return new Response("ok", { status: 200 });
     } catch (err: any) {

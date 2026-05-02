@@ -275,6 +275,7 @@ server.registerTool(
       }
 
       let linkedEntitiesCount = 0;
+      const entityNameToId: Record<string, string> = {};
       if (Array.isArray(meta.entities_detected) && meta.entities_detected.length > 0) {
         for (const ent of meta.entities_detected) {
           if (!ent.name || !ent.type) continue;
@@ -282,12 +283,37 @@ server.registerTool(
             .upsert({ name: ent.name, type: ent.type }, { onConflict: "name, type" })
             .select("id").single();
           if (entityData?.id) {
+            entityNameToId[ent.name] = entityData.id;
             await supabase.from("memory_entities").insert({
               memory_id: memoryId,
               entity_id: entityData.id
             });
             linkedEntitiesCount++;
           }
+        }
+      }
+
+      // 3.5 Upsert Entity Edges (Phase 22: Enhanced Knowledge Graph)
+      let entityEdgesCount = 0;
+      if (Array.isArray(meta.entity_relationships) && meta.entity_relationships.length > 0) {
+        for (const rel of meta.entity_relationships) {
+          if (!rel.source || !rel.target || !rel.relationship_type) continue;
+          const sourceId = entityNameToId[rel.source];
+          const targetId = entityNameToId[rel.target];
+          if (!sourceId || !targetId) continue;
+          const confidence = typeof rel.confidence === "number"
+            ? Math.min(1.0, Math.max(0.0, rel.confidence))
+            : 1.0;
+          if (confidence < 0.5) continue;
+          const { error: edgeError } = await supabase.rpc("entity_edges_upsert", {
+            p_source_entity_id: sourceId,
+            p_target_entity_id: targetId,
+            p_relationship_type: rel.relationship_type,
+            p_weight: confidence,
+            p_properties: { rationale: rel.rationale || null },
+            p_memory_id: memoryId,
+          });
+          if (!edgeError) entityEdgesCount++;
         }
       }
 
@@ -325,6 +351,7 @@ server.registerTool(
       let confirmation = `Captured as ${meta.memory_type || "observation"}`;
       if (meta.extracted_tasks?.length) confirmation += ` | Tasks: ${meta.extracted_tasks.length}`;
       if (linkedEntitiesCount) confirmation += ` | Entities: ${linkedEntitiesCount}`;
+      if (entityEdgesCount) confirmation += ` | Entity Edges: ${entityEdgesCount}`;
       if (linkedThreadsCount) confirmation += ` | Threads: ${linkedThreadsCount}`;
       if (insightText) confirmation += ` | Insight: ${insightText}`;
 
@@ -765,6 +792,185 @@ server.registerTool(
       }).join("\n");
 
       return { content: [{ type: "text" as const, text: `Memory Edges (Reasoning Graph):\n${output}` }] };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// Tool 19: Get Entity Neighbors
+server.registerTool(
+  "get_entity_neighbors",
+  {
+    title: "Get Entity Neighbors",
+    description: "Get all entities directly connected to a given entity in the Knowledge Graph. Returns neighbors with their relationship type, weight, and direction.",
+    inputSchema: {
+      entity_id: z.string().uuid().describe("The UUID of the entity to get neighbors for"),
+      relationship_type: z.string().optional().describe("Filter by relationship type (e.g. works_on, knows, depends_on)"),
+      direction: z.enum(["outgoing", "incoming", "both"]).optional().describe("Edge direction to follow. Defaults to 'both'"),
+      limit: z.number().optional().default(25),
+    },
+  },
+  async ({ entity_id, relationship_type, direction, limit }: { entity_id: string, relationship_type?: string, direction?: string, limit?: number }) => {
+    try {
+      const dir = direction || "both";
+      const results: Array<Record<string, unknown>> = [];
+
+      // Outgoing edges: entity_id is the source
+      if (dir === "outgoing" || dir === "both") {
+        let qb = supabase
+          .from("entity_edges")
+          .select("id, relationship_type, weight, properties, target_entity_id, entities!entity_edges_target_entity_id_fkey(id, name, type)")
+          .eq("source_entity_id", entity_id)
+          .limit(limit || 25);
+        if (relationship_type) qb = qb.eq("relationship_type", relationship_type);
+        const { data, error } = await qb;
+        if (error) throw new Error(`Outgoing neighbor query failed: ${error.message}`);
+        for (const edge of data || []) {
+          results.push({
+            direction: "outgoing",
+            edge_id: edge.id,
+            relationship_type: edge.relationship_type,
+            weight: edge.weight,
+            rationale: (edge.properties as any)?.rationale || null,
+            neighbor: edge.entities,
+          });
+        }
+      }
+
+      // Incoming edges: entity_id is the target
+      if (dir === "incoming" || dir === "both") {
+        let qb = supabase
+          .from("entity_edges")
+          .select("id, relationship_type, weight, properties, source_entity_id, entities!entity_edges_source_entity_id_fkey(id, name, type)")
+          .eq("target_entity_id", entity_id)
+          .limit(limit || 25);
+        if (relationship_type) qb = qb.eq("relationship_type", relationship_type);
+        const { data, error } = await qb;
+        if (error) throw new Error(`Incoming neighbor query failed: ${error.message}`);
+        for (const edge of data || []) {
+          results.push({
+            direction: "incoming",
+            edge_id: edge.id,
+            relationship_type: edge.relationship_type,
+            weight: edge.weight,
+            rationale: (edge.properties as any)?.rationale || null,
+            neighbor: edge.entities,
+          });
+        }
+      }
+
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({ count: results.length, neighbors: results }, null, 2) }],
+      };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// Tool 20: Traverse Entity Graph
+server.registerTool(
+  "traverse_entity_graph",
+  {
+    title: "Traverse Entity Graph",
+    description: "Walk the Knowledge Graph from a starting entity up to N hops deep. Returns all reachable entities with their depth, path, and the relationship type traversed at each hop. Uses PostgreSQL recursive CTEs.",
+    inputSchema: {
+      start_entity_id: z.string().uuid().describe("UUID of the entity to start traversal from"),
+      max_depth: z.number().optional().default(3).describe("Maximum number of hops (default: 3)"),
+      relationship_type: z.string().optional().describe("Only follow edges of this type. Omit to follow all types."),
+    },
+  },
+  async ({ start_entity_id, max_depth, relationship_type }: { start_entity_id: string, max_depth?: number, relationship_type?: string }) => {
+    try {
+      const { data, error } = await supabase.rpc("traverse_entity_graph", {
+        p_start_entity_id: start_entity_id,
+        p_max_depth: max_depth ?? 3,
+        p_relationship_type: relationship_type || null,
+      });
+      if (error) throw new Error(`Graph traversal failed: ${error.message}`);
+      if (!data || data.length === 0) {
+        return { content: [{ type: "text" as const, text: "No connected entities found from the starting node at this depth." }] };
+      }
+      const output = data.map((n: any) =>
+        `${'  '.repeat(n.depth)}${n.depth > 0 ? `--[${n.via_relationship}]--> ` : ''}${n.entity_name} [${n.entity_type}] (depth=${n.depth}, id=${n.entity_id})`
+      ).join("\n");
+      return { content: [{ type: "text" as const, text: `Entity Graph Traversal (${data.length} nodes reached):\n\n${output}` }] };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// Tool 21: Find Entity Path
+server.registerTool(
+  "find_entity_path",
+  {
+    title: "Find Entity Path",
+    description: "Find the shortest relationship path between two entities in the Knowledge Graph. Follows edges in both directions. Returns each step with the entity name and relationship type traversed.",
+    inputSchema: {
+      start_entity_id: z.string().uuid().describe("UUID of the starting entity"),
+      end_entity_id: z.string().uuid().describe("UUID of the target entity"),
+      max_depth: z.number().optional().default(6).describe("Maximum path length to search (default: 6)"),
+    },
+  },
+  async ({ start_entity_id, end_entity_id, max_depth }: { start_entity_id: string, end_entity_id: string, max_depth?: number }) => {
+    try {
+      const { data, error } = await supabase.rpc("find_entity_path", {
+        p_start_entity_id: start_entity_id,
+        p_end_entity_id: end_entity_id,
+        p_max_depth: max_depth ?? 6,
+      });
+      if (error) throw new Error(`Pathfinding failed: ${error.message}`);
+      if (!data || data.length === 0) {
+        return { content: [{ type: "text" as const, text: "No path found between these two entities within the depth limit." }] };
+      }
+      const output = data.map((step: any) =>
+        `Step ${step.step}: ${step.entity_name}${step.via_relationship ? ` (via: ${step.via_relationship})` : " (start)"}`
+      ).join(" → ");
+      return { content: [{ type: "text" as const, text: `Shortest Entity Path (${data.length} hops):\n${output}` }] };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// Tool 22: List Entity Edge Types
+server.registerTool(
+  "list_entity_edge_types",
+  {
+    title: "List Entity Edge Types",
+    description: "List all distinct relationship types currently in the entity Knowledge Graph with counts. Useful for understanding the graph's relationship vocabulary.",
+    inputSchema: {},
+  },
+  async () => {
+    try {
+      const { data, error } = await supabase
+        .from("entity_edges")
+        .select("relationship_type, weight");
+      if (error) throw new Error(`Failed to list edge types: ${error.message}`);
+      if (!data || data.length === 0) {
+        return { content: [{ type: "text" as const, text: "No entity edges found. Send some memories mentioning 2+ related entities to populate the graph." }] };
+      }
+      const counts: Record<string, { count: number; avgWeight: number; totalWeight: number }> = {};
+      for (const row of data) {
+        if (!counts[row.relationship_type]) {
+          counts[row.relationship_type] = { count: 0, avgWeight: 0, totalWeight: 0 };
+        }
+        counts[row.relationship_type].count++;
+        counts[row.relationship_type].totalWeight += Number(row.weight) || 0;
+      }
+      const types = Object.entries(counts)
+        .map(([type, stats]) => ({
+          relationship_type: type,
+          count: stats.count,
+          avg_confidence: (stats.totalWeight / stats.count).toFixed(2),
+        }))
+        .sort((a, b) => b.count - a.count);
+      const output = types.map(t =>
+        `- ${t.relationship_type}: ${t.count} edge${t.count > 1 ? "s" : ""} (avg confidence: ${t.avg_confidence})`
+      ).join("\n");
+      return { content: [{ type: "text" as const, text: `Entity Relationship Types:\n${output}` }] };
     } catch (err: unknown) {
       return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
     }

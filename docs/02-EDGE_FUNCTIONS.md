@@ -51,6 +51,14 @@ All LLM operations are centralized here. Both Edge Functions import from this mo
   "entities_detected": [
     { "name": "Proper noun", "type": "Person | Project | Concept" }
   ],
+  "entity_relationships": [
+    {
+      "source": "Source entity name (must match entities_detected)",
+      "target": "Target entity name (must match entities_detected)",
+      "relationship_type": "works_on | depends_on | uses | knows | manages | related_to",
+      "confidence": 0.0
+    }
+  ],
   "strategic_alignment": "1 sentence or null",
   "wisdom_extensions": {
     "learning": { // Handled dynamically via registry architecture
@@ -60,7 +68,7 @@ All LLM operations are centralized here. Both Edge Functions import from this mo
 }
 ```
 
-**Fallback behavior:** If JSON parsing fails, returns a safe default with `memory_type: "observation"` and empty arrays.
+**Fallback behavior:** If JSON parsing fails, returns a safe default with `memory_type: "observation"` and empty arrays for all list fields.
 
 ---
 
@@ -97,7 +105,8 @@ Triggered asynchronously by Supabase `pg_net` webhook on `memories` insert.
 | 6a | `getEmbedding()` + `extractMetadata()` (parallel) | — |
 | 6b | Update memory with computed embedding and true type | `memories` |
 | 6c | Insert extracted tasks | `tasks` |
-| 6d | Upsert entities + link via join table | `entities`, `memory_entities` |
+| 6d | Upsert entities + link via join table (builds `entityNameToId` map) | `entities`, `memory_entities` |
+| **6d.5** | **Upsert typed entity edges** (from `entity_relationships` in metadata; resolves source/target via `entityNameToId` map; min confidence 0.5) | **`entity_edges`** |
 | 6e | Upsert threads + link via join table | `threads`, `memory_threads` |
 | 6f | Download Slack file attachments → upload to Supabase Storage → insert metadata | `artifacts` (table + storage bucket) |
 | 6g | (Background webhook on artifacts insert) Fetch artifact, extract OCR/text, generate embedding, update | `artifacts` |
@@ -151,7 +160,7 @@ Captured as *observation*
 | `search_memories` | `query` (string), `limit?` (10), `threshold?` (0.5) | Semantic vector search via `match_memories` RPC. Returns memory content + joined tasks + linked entity names. |
 | `list_memories` | `limit?` (10), `type?`, `days?` | Chronological listing with optional type/date filters. |
 | `memory_stats` | *(none)* | Dashboard: total memories, tasks, entities, type breakdown, date range. |
-| `capture_memory` | `content` (string) | Full graph ingestion from any AI client — embedding, metadata extraction, task/entity population. |
+| `capture_memory` | `content` (string) | Full graph ingestion from any AI client — embedding, metadata extraction, task/entity/entity-edge population. |
 | `complete_task` | `task_id` (string/uuid) | Mark a task as completed. (Moved to queue) |
 | `update_task_status` | `task_id` (string), `status` (string) | Move a task to a different formalized workflow stage (pending, in_progress, blocked, deferred, completed). (Moved to queue) |
 | `update_task_deadline` | `task_id` (string), `due_date` (string) | Reschedule a task to a new due date. (Moved to queue) |
@@ -168,6 +177,10 @@ Captured as *observation*
 | `add_learning_milestone` | `topic_id`, `description` | Append a milestone locally to a learning topic via queue. |
 | `update_mastery_status` | `topic_id`, `status` | Adjust mastery state of a learning topic via queue. |
 | `list_memory_edges` | `memory_id?` (uuid), `relation?`, `limit?` (20) | List typed reasoning edges from the Knowledge Graph. Read-only; not queued. |
+| `get_entity_neighbors` | `entity_id` (uuid), `relationship_type?`, `direction?` (outgoing\|incoming\|both), `limit?` (25) | Get all entities directly connected to a given entity with relationship type, weight, and direction. |
+| `traverse_entity_graph` | `start_entity_id` (uuid), `max_depth?` (3), `relationship_type?` | Multi-hop entity graph walk via `traverse_entity_graph` recursive CTE RPC. |
+| `find_entity_path` | `start_entity_id` (uuid), `end_entity_id` (uuid), `max_depth?` (6) | BFS shortest path between two entities. |
+| `list_entity_edge_types` | *(none)* | List all distinct entity relationship types in use with counts and average confidence. |
 
 ---
 
@@ -209,6 +222,7 @@ npx supabase functions deploy work-operating-model-mcp --no-verify-jwt --workdir
 npx supabase functions deploy open-brain-mcp --no-verify-jwt --workdir .
 npx supabase functions deploy entity-wiki-generator --no-verify-jwt --workdir .
 npx supabase functions deploy classify-memory-edges --no-verify-jwt --workdir .
+# Phase 22 — no new Edge Function needed; entity edges are produced by process-memory and open-brain-mcp
 ```
 
 ### Endpoints

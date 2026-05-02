@@ -59,9 +59,24 @@ export async function extractMetadata(text: string): Promise<{ data: Record<stri
   "entities_detected": [
     { "name": "Exact proper noun", "type": "Person | Project | Concept" }
   ],
+  "entity_relationships": [
+    {
+      "source": "Source entity name (MUST match a name in entities_detected)",
+      "target": "Target entity name (MUST match a name in entities_detected)",
+      "relationship_type": "works_on | depends_on | uses | knows | manages | related_to",
+      "confidence": 0.0
+    }
+  ],
   "strategic_alignment": "1 sentence tying this to broader goals if applicable, or null",
   "wisdom_extensions": ${JSON.stringify(verticalSchemas, null, 2)}
 }
+
+Entity Relationship Instructions:
+- Only populate entity_relationships if there are 2+ entities_detected AND a clear semantic relationship exists between them.
+- Each source and target MUST exactly match a name from entities_detected.
+- Use the most specific relationship_type that fits. Prefer specificity over "related_to".
+- Set confidence between 0.0 (weak signal) and 1.0 (explicit statement in the text).
+- If no clear relationships exist, return entity_relationships as [].
 
 Domain Extensions Instructions (Only populate if applicable):
 ${verticalPrompts}
@@ -78,7 +93,7 @@ Return only the raw JSON. If arrays are empty, return [].`,
     try {
         return { data: JSON.parse(d.choices[0].message.content), usage: d.usage || null };
     } catch {
-        return { data: { memory_type: "observation", extracted_tasks: [], associated_threads: [], entities_detected: [], strategic_alignment: null, wisdom_extensions: {} }, usage: null };
+        return { data: { memory_type: "observation", extracted_tasks: [], associated_threads: [], entities_detected: [], entity_relationships: [], strategic_alignment: null, wisdom_extensions: {} }, usage: null };
     }
 }
 

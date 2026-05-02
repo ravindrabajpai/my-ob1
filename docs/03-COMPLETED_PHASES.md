@@ -126,3 +126,11 @@
 - [x] **LLM Classifier:** Added `classifyMemoryEdge(memoryA, memoryB)` to `_shared/brain-engine.ts`. Uses GPT-4o-mini via OpenRouter with deterministic temperature (0.1) and `response_format: json_object`.
 - [x] **Local Skill:** Ported OB1 `classify-edges.mjs` to Deno/TypeScript at `.agents/skills/typed-edge-classifier/classify.ts` with `--dry-run`, `--pair`, `--limit`, and `--min-confidence` flags.
 - [x] **MCP Tool:** Added read-only `list_memory_edges` tool to `open-brain-mcp` exposing the reasoning graph to AI clients.
+
+### Phase 22: Enhanced Knowledge Graph (Explicit Entity Relationships)
+- [x] **Entity Edge Schema:** Created `entity_edges` table for typed, directed, weighted relationships between entities (`works_on`, `depends_on`, `uses`, `knows`, `manages`, `related_to`). Includes `entity_edges_upsert` RPC (idempotent; MAX weight on conflict). Migration `021_enhanced_knowledge_graph.sql`.
+- [x] **Recursive CTE Traversal:** Added `traverse_entity_graph()` PostgreSQL function for multi-hop entity graph walks (adapted from OB1 `ob-graph` recipe). Added `find_entity_path()` for BFS shortest-path between two entities.
+- [x] **Auto-Extraction:** Extended `extractMetadata` prompt in `brain-engine.ts` to produce `entity_relationships[]` during the same LLM call that detects entities. New step 6d.5 in both `process-memory` and `capture_memory` resolves entity names via `entityNameToId` map and upserts edges via RPC (confidence threshold: 0.5).
+- [x] **MCP Tools (×4):** Added `get_entity_neighbors`, `traverse_entity_graph`, `find_entity_path`, and `list_entity_edge_types` to `open-brain-mcp`. All read-only (no queue).
+- [x] **Backfill Skill:** Local Deno CLI at `.agents/skills/entity-relationship-backfill/classify.ts` for retroactive backfill of historical entity pairs with `--dry-run`, `--limit`, `--min-co-occurrence`, and `--min-confidence` flags.
+

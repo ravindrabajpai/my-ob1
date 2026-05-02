@@ -98,6 +98,7 @@ Slack Message (+ optional file attachments)
 | Phase 18: Application-Layer Wisdom Verticals & Extensions | ✅ Complete | `dashboards/repo-learning-coach/` (Express + React learning app, Brain Bridge via MCP HTTP). Infographic Generator skill at `.agents/skills/infographic-generator/`. Migration `018_repo_learning_coach.sql`. |
 | Phase 20: The Obsidian Wiki Compiler | ✅ Complete | `entity-wiki-generator` Edge Function + `obsidian-wiki-compiler-cron` schedule. Local sync CLI at `.agents/skills/obsidian-wiki-compiler/`. |
 | Phase 21: Typed Edge Classifier (Reasoning Graph) | ✅ Complete | `memory_edges` table + `memory_edges_upsert` RPC. `classify-memory-edges` Edge Function. `classifyMemoryEdge()` in `brain-engine.ts`. Local skill at `.agents/skills/typed-edge-classifier/`. `list_memory_edges` MCP tool. |
+| Phase 22: Enhanced Knowledge Graph (Explicit Entity Relationships) | ✅ Complete | `entity_edges` table + `entity_edges_upsert`, `traverse_entity_graph`, `find_entity_path` RPCs. `entity_relationships[]` auto-extraction in `extractMetadata`. Step 6d.5 in `process-memory` and `capture_memory`. 4 new MCP tools (`get_entity_neighbors`, `traverse_entity_graph`, `find_entity_path`, `list_entity_edge_types`). Backfill skill at `.agents/skills/entity-relationship-backfill/`. |
 
 **What is NOT yet built** (see [04-FUTURE_HORIZONS.md](./04-FUTURE_HORIZONS.md) for details):
 *(All core phases and initial vertical infrastructure are deployed)*
@@ -141,7 +142,7 @@ my-ob1/
 │   │   │   ├── index.ts                # BYOC: five-layer interview + portable profile export
 │   │   │   └── deno.json
 │   │   ├── open-brain-mcp/
-│   │   │   ├── index.ts                # MCP server (18 tools) via Hono + StreamableHTTPTransport
+│   │   │   ├── index.ts                # MCP server (22 tools) via Hono + StreamableHTTPTransport
 │   │   │   └── deno.json
 │   │   └── classify-memory-edges/
 │   │       ├── index.ts                # On-demand reasoning edge classifier (entity co-occurrence sampling)
@@ -199,9 +200,12 @@ my-ob1/
 │   │   ├── infographic-generator/
 │   │   │   ├── SKILL.md                    # Generate infographics from research/memories
 │   │   │   └── generate.py                 # Gemini API image generation script
-│   │   └── typed-edge-classifier/
-│   │       ├── SKILL.md                    # Typed edge classifier — when and how to run
-│   │       └── classify.ts                 # Local Deno CLI: dry-run + live classification
+│   │   ├── typed-edge-classifier/
+│   │   │   ├── SKILL.md                    # Typed edge classifier — when and how to run
+│   │   │   └── classify.ts                 # Local Deno CLI: dry-run + live classification
+│   │   └── entity-relationship-backfill/
+│   │       ├── SKILL.md                    # Entity relationship backfill — when and how to run
+│   │       └── classify.ts                 # Local Deno CLI: co-occurrence scan + LLM classification
 │   ├── workflows/
 │   │   └── development-loop.yaml       # Standard feature dev workflow
 │   └── rules/

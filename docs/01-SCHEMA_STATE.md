@@ -31,6 +31,7 @@ The database is **Supabase PostgreSQL** with the `pgvector` extension for semant
 | `018_repo_learning_coach.sql` | Creates 10 `repo_learning_*` tables for the Repo Learning Coach dashboard: `projects`, `research_documents`, `tracks`, `lessons`, `quizzes`, `quiz_questions`, `lesson_progress`, `quiz_attempts`, `quiz_responses`, `lesson_comments`. All tables have RLS enabled. |
 | `019_obsidian_wiki_compiler.sql` | Creates `entity_wikis` table to cache generated markdown dossiers and sets up `obsidian-wiki-compiler-cron`. |
 | `020_typed_edge_classifier.sql` | Creates `memory_edges` table with typed relation CHECK constraint and `memory_edges_upsert` RPC for idempotent edge insertion. Phase 21 (Reasoning Graph). |
+| `021_enhanced_knowledge_graph.sql` | Creates `entity_edges` table for typed directed relationships between entities. Adds `entity_edges_upsert`, `traverse_entity_graph`, and `find_entity_path` RPCs. Phase 22 (Enhanced Knowledge Graph). |
 
 ---
 
@@ -159,6 +160,24 @@ Typed logical reasoning edges between memories. Populated by the `classify-memor
 | `created_at` | TIMESTAMPTZ | UTC default |
 
 **Constraints:** `UNIQUE(from_memory_id, to_memory_id, relation)` — same pair can have multiple relation types. No self-loops (`from_memory_id <> to_memory_id`).
+
+---
+
+#### `entity_edges`
+Typed, directed, weighted relationships between entities. Populated automatically by the `extractMetadata` LLM prompt during ingestion and retroactively by the `.agents/skills/entity-relationship-backfill/classify.ts` script.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID (PK) | Auto-generated |
+| `source_entity_id` | UUID (FK → entities) | CASCADE on delete |
+| `target_entity_id` | UUID (FK → entities) | CASCADE on delete |
+| `relationship_type` | TEXT NOT NULL | `works_on`, `depends_on`, `uses`, `knows`, `manages`, `related_to` |
+| `weight` | NUMERIC(4,2) DEFAULT 1.00 | Confidence/strength [0.00–1.00] |
+| `properties` | JSONB DEFAULT '{}' | Flexible metadata: `{ rationale, source }` |
+| `memory_id` | UUID (FK → memories) NULL | The memory that sourced this edge; SET NULL on delete |
+| `created_at` | TIMESTAMPTZ | UTC default |
+
+**Constraints:** `UNIQUE(source_entity_id, target_entity_id, relationship_type)` — same entity pair can have multiple distinct relationship types. No self-loops (`source_entity_id <> target_entity_id`).
 
 ---
 
@@ -296,6 +315,45 @@ memory_edges_upsert(
 ) RETURNS public.memory_edges
 ```
 
+### `entity_edges_upsert`
+
+Idempotent upsert for entity relationship edges. On conflict (same `source_entity_id`, `target_entity_id`, `relationship_type` triplet) it takes the MAX weight (never downgrades confidence) and merges incoming `properties` JSONB over existing.
+
+```sql
+entity_edges_upsert(
+    p_source_entity_id  UUID,
+    p_target_entity_id  UUID,
+    p_relationship_type TEXT,
+    p_weight            NUMERIC  DEFAULT 1.00,
+    p_properties        JSONB    DEFAULT NULL,
+    p_memory_id         UUID     DEFAULT NULL
+) RETURNS public.entity_edges
+```
+
+### `traverse_entity_graph`
+
+Recursive CTE multi-hop walk from a starting entity through `entity_edges`. Returns all reachable entities with depth, path (array of UUIDs), and the relationship type traversed at each hop. Supports optional `relationship_type` filter and configurable `max_depth`.
+
+```sql
+traverse_entity_graph(
+    p_start_entity_id   UUID,
+    p_max_depth         INT   DEFAULT 3,
+    p_relationship_type TEXT  DEFAULT NULL
+) RETURNS TABLE (entity_id UUID, entity_name TEXT, entity_type TEXT, depth INT, path UUID[], via_relationship TEXT)
+```
+
+### `find_entity_path`
+
+BFS shortest path between two entities following edges in both directions. Returns each step with entity name and the relationship type traversed at that hop.
+
+```sql
+find_entity_path(
+    p_start_entity_id   UUID,
+    p_end_entity_id     UUID,
+    p_max_depth         INT DEFAULT 6
+) RETURNS TABLE (step INT, entity_id UUID, entity_name TEXT, via_relationship TEXT)
+```
+
 ### `merge_entities`
 
 Safely deduplicates the Knowledge Graph by merging a source entity into a target entity, securely handling `memory_entities` unique constraint conflicts, and deleting the source entity.
@@ -354,8 +412,11 @@ erDiagram
     memories ||--o{ memory_threads : "links"
     memories ||--o{ memory_edges : "from edges"
     memories ||--o{ memory_edges : "to edges"
+    memories ||--o{ entity_edges : "sources"
     entities ||--o{ memory_entities : "links"
     entities ||--o| entity_wikis : "has dossier"
+    entities ||--o{ entity_edges : "source edges"
+    entities ||--o{ entity_edges : "target edges"
     threads ||--o{ memory_threads : "links"
     taste_preferences }o--|| system_insights : "evaluated by"
 ```
