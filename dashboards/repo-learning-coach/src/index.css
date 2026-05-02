@@ -1,15 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:wght@400;700&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 :root {
+  --at-tinc: #FCFAF7;
+  --at-sand: #F0EBE2;
+  --at-nero: #191919;
+  --at-muted: #666666;
+  --at-accent: #2D2D2D;
+  --at-border: #D1CEC7;
+  --at-link: #0066CC;
+
   color-scheme: light;
-  font-family: 'IBM Plex Sans', 'Avenir Next', 'Segoe UI', sans-serif;
-  line-height: 1.5;
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
   font-weight: 400;
-  color: #152033;
-  background:
-    radial-gradient(circle at top left, rgba(252, 222, 179, 0.65), transparent 26%),
-    radial-gradient(circle at top right, rgba(171, 220, 214, 0.5), transparent 25%),
-    linear-gradient(180deg, #fbf8f2 0%, #f2efe8 100%);
+  color: var(--at-nero);
+  background-color: var(--at-tinc);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -39,5 +44,5 @@ textarea {
 
 code,
 pre {
-  font-family: 'IBM Plex Mono', 'SFMono-Regular', 'Menlo', monospace;
+  font-family: 'JetBrains Mono', 'SFMono-Regular', 'Menlo', monospace;
 }
