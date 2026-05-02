@@ -17,6 +17,8 @@ All server-side logic runs as **Supabase Edge Functions** written in **Deno/Type
 | `proactive-briefings` | `supabase/functions/proactive-briefings/index.ts` | Cron job (sends daily Slack briefing with pending tasks and recent insights) |
 | `work-operating-model-mcp` | `supabase/functions/work-operating-model-mcp/index.ts` | REST API for BYOC five-layer interview workflow and portable context bundle export |
 | `open-brain-mcp` | `supabase/functions/open-brain-mcp/index.ts` | MCP server exposing tools to AI clients |
+| `entity-wiki-generator` | `supabase/functions/entity-wiki-generator/index.ts` | Cron job (`obsidian-wiki-compiler-cron`) → generates markdown dossiers for entities with 3+ linked memories |
+| `classify-memory-edges` | `supabase/functions/classify-memory-edges/index.ts` | On-demand HTTP trigger → samples entity co-occurrence candidate pairs and classifies typed reasoning edges into `memory_edges` |
 | `_shared/brain-engine.ts` | `supabase/functions/_shared/brain-engine.ts` | Shared AI module (embeddings, metadata extraction, goal evaluation) |
 
 ---
@@ -33,7 +35,9 @@ All LLM operations are centralized here. Both Edge Functions import from this mo
 | `extractMetadata(text)` | `openai/gpt-4o-mini` | Extracts structured JSON: `memory_type`, `extracted_tasks`, `associated_threads`, `entities_detected`, `strategic_alignment`, `wisdom_extensions` (Returns `{ data, usage }`) |
 | `extractImageText(imageUrl)`| `openai/gpt-4o-mini` | Performs OCR to extract text and a concise summary from an image URL (Returns `{ text, usage }`) |
 | `evaluateAgainstTastePreferences(memoryText, preferences[])` | `openai/gpt-4o-mini` | Evaluates against active taste preferences using their WANT/REJECT guardrails; returns insight + usage. |
-| `generateSynthesis(memories, tasks, insights, activePreferences, previousReport)` | `openai/gpt-4o-mini` | Extracts patterns, summarizes a weekly backlog against structured preferences into a single markdown digest, and performs contradiction auditing & signal diffs against the previous report. (Returns `{ report, usage }`) |
+| `generateSynthesis(memories, tasks, insights, activePreferences, previousReport)` | `openai/gpt-4o-mini` | Extracts patterns, summarizes a weekly backlog against structured preferences into a single markdown digest, and performs contradiction auditing \& signal diffs against the previous report. (Returns `{ report, usage }`) |
+| `generateWikiDossier(entityName, entityType, memories)` | `openai/gpt-4o-mini` | Synthesizes a structured Markdown wiki dossier for an entity based on its linked memories. (Returns `{ dossier, usage }`) |
+| `classifyMemoryEdge(memoryA, memoryB)` | `openai/gpt-4o-mini` | Classifies the semantic relationship between two memories. Returns `{ relation, direction, confidence, rationale, valid_from, valid_until, usage }`. Used by Phase 21 Typed Edge Classifier. |
 
 ### LLM Output Schema (from `extractMetadata`)
 
@@ -163,6 +167,7 @@ Captured as *observation*
 | `list_learning_topics` | `limit?` (20) | List topics tracked in the Learning Wisdom Vertical. |
 | `add_learning_milestone` | `topic_id`, `description` | Append a milestone locally to a learning topic via queue. |
 | `update_mastery_status` | `topic_id`, `status` | Adjust mastery state of a learning topic via queue. |
+| `list_memory_edges` | `memory_id?` (uuid), `relation?`, `limit?` (20) | List typed reasoning edges from the Knowledge Graph. Read-only; not queued. |
 
 ---
 
@@ -202,6 +207,8 @@ npx supabase functions deploy automated-synthesis --no-verify-jwt --workdir .
 npx supabase functions deploy proactive-briefings --no-verify-jwt --workdir .
 npx supabase functions deploy work-operating-model-mcp --no-verify-jwt --workdir .
 npx supabase functions deploy open-brain-mcp --no-verify-jwt --workdir .
+npx supabase functions deploy entity-wiki-generator --no-verify-jwt --workdir .
+npx supabase functions deploy classify-memory-edges --no-verify-jwt --workdir .
 ```
 
 ### Endpoints

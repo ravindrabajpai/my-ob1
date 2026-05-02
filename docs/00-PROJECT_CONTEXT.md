@@ -96,8 +96,10 @@ Slack Message (+ optional file attachments)
 | Phase 17: Advanced Inbound Processing & Context Routing | ✅ Complete | Adaptive Capture Classification (confidence-gated `ingest-thought`) + BYOC (`work-operating-model-mcp` Edge Function, five-layer interview, portable context bundle). |
 | Phase 19: Explicit Lifecycle & Metacognitive Operating Models | ✅ Complete | Expanded task lifecycle statuses and World-Model drift/contradiction detection in the `automated-synthesis` pipeline. |
 | Phase 18: Application-Layer Wisdom Verticals & Extensions | ✅ Complete | `dashboards/repo-learning-coach/` (Express + React learning app, Brain Bridge via MCP HTTP). Infographic Generator skill at `.agents/skills/infographic-generator/`. Migration `018_repo_learning_coach.sql`. |
+| Phase 20: The Obsidian Wiki Compiler | ✅ Complete | `entity-wiki-generator` Edge Function + `obsidian-wiki-compiler-cron` schedule. Local sync CLI at `.agents/skills/obsidian-wiki-compiler/`. |
+| Phase 21: Typed Edge Classifier (Reasoning Graph) | ✅ Complete | `memory_edges` table + `memory_edges_upsert` RPC. `classify-memory-edges` Edge Function. `classifyMemoryEdge()` in `brain-engine.ts`. Local skill at `.agents/skills/typed-edge-classifier/`. `list_memory_edges` MCP tool. |
 
-**What is NOT yet built** (see [roadmap.md](./03-ROADMAP.md) for details):
+**What is NOT yet built** (see [04-FUTURE_HORIZONS.md](./04-FUTURE_HORIZONS.md) for details):
 *(All core phases and initial vertical infrastructure are deployed)*
 ---
 
@@ -109,8 +111,9 @@ Agents MUST read the relevant module file before working on that domain:
 |-------------|--------|----------------|
 | [schema-state.md](./01-SCHEMA_STATE.md) | Database | All 9 tables, columns, relationships, RPC functions, and security architecture |
 | [edge-functions.md](./02-EDGE_FUNCTIONS.md) | Ingestion & MCP | `ingest-thought` pipeline, `open-brain-mcp` tools, `brain-engine.ts` shared module |
-| [roadmap.md](./03-ROADMAP.md) | Planning | Completed phases and prioritized future horizons |
-| [how-to-add-wisdom-vertical.md](./how-to-add-wisdom-vertical.md) | Extensibility | SOP for adding new Domain-Specific Extensions to the graph |
+| [03-COMPLETED_PHASES.md](./03-COMPLETED_PHASES.md) | Planning | Completed phases |
+| [04-FUTURE_HORIZONS.md](./04-FUTURE_HORIZONS.md) | Planning | Prioritized future horizons |
+| [08-adding-wisdom-verticals.md](../user-manuals/08-adding-wisdom-verticals.md) | Extensibility | SOP for adding new Domain-Specific Extensions to the graph |
 
 ---
 
@@ -137,8 +140,11 @@ my-ob1/
 │   │   ├── work-operating-model-mcp/
 │   │   │   ├── index.ts                # BYOC: five-layer interview + portable profile export
 │   │   │   └── deno.json
-│   │   └── open-brain-mcp/
-│   │       ├── index.ts                # MCP server (14 tools) via Hono + StreamableHTTPTransport
+│   │   ├── open-brain-mcp/
+│   │   │   ├── index.ts                # MCP server (18 tools) via Hono + StreamableHTTPTransport
+│   │   │   └── deno.json
+│   │   └── classify-memory-edges/
+│   │       ├── index.ts                # On-demand reasoning edge classifier (entity co-occurrence sampling)
 │   │       └── deno.json
 │   └── migrations/
 │       ├── 001_expanded_schema.sql     # Core graph schema (7 tables + RPC)
@@ -157,7 +163,10 @@ my-ob1/
 │       ├── 014_system_config.sql # Persistent configuration table
 │       ├── 015_adaptive_capture_classification.sql # Confidence-gated learning tables
 │       ├── 016_work_operating_model.sql # BYOC: operating model tables + RPCs
-│       └── 018_repo_learning_coach.sql # 10 repo_learning_* tables for the dashboard app
+│       ├── 017_formalized_workflow_statuses.sql # Formalized task lifecycle statuses
+│       ├── 018_repo_learning_coach.sql # 10 repo_learning_* tables for the dashboard app
+│       ├── 019_obsidian_wiki_compiler.sql # entity_wikis cache table + pg_cron schedule
+│       └── 020_typed_edge_classifier.sql # memory_edges table + memory_edges_upsert RPC
 ├── mcp-server/                         # UNUSED — MCP lives in supabase/functions/open-brain-mcp
 ├── dashboards/
 │   └── repo-learning-coach/             # Express server + React Vite app for structured learning
@@ -172,7 +181,8 @@ my-ob1/
 │   │   │   ├── SKILL.md                    # THIS FILE — root project index
 │   │   │   ├── schema-state.md             # Database schema reference
 │   │   │   ├── edge-functions.md           # Edge Function module reference
-│   │   │   └── roadmap.md                  # Project roadmap & future horizons
+│   │   │   ├── 03-COMPLETED_PHASES.md      # Completed project phases
+│   │   │   └── 04-FUTURE_HORIZONS.md       # Project future horizons
 │   │   ├── auto-capture/
 │   │   │   └── SKILL.md                    # Triggered at the end of sessions
 │   │   ├── workflow-observability/
@@ -186,9 +196,12 @@ my-ob1/
 │   │   │   └── SKILL.md                    # BYOC five-layer interview + portable bundle
 │   │   ├── n-agentic-harness/
 │   │       └── SKILL.md                    # Tool boundaries and definitions
-│   │   └── infographic-generator/
-│   │       ├── SKILL.md                    # Generate infographics from research/memories
-│   │       └── generate.py                 # Gemini API image generation script
+│   │   ├── infographic-generator/
+│   │   │   ├── SKILL.md                    # Generate infographics from research/memories
+│   │   │   └── generate.py                 # Gemini API image generation script
+│   │   └── typed-edge-classifier/
+│   │       ├── SKILL.md                    # Typed edge classifier — when and how to run
+│   │       └── classify.ts                 # Local Deno CLI: dry-run + live classification
 │   ├── workflows/
 │   │   └── development-loop.yaml       # Standard feature dev workflow
 │   └── rules/

@@ -10,7 +10,8 @@ You must strictly adhere to a documentation-first workflow. Before writing or mo
 - **Architecture & Ecosystem:** Read `docs/00-PROJECT_CONTEXT.md`
 - **Database / Schema:** Read `docs/01-SCHEMA_STATE.md`
 - **Backend / MCP:** Read `docs/02-EDGE_FUNCTIONS.md`
-- **Future Goals:** Read `docs/03-ROADMAP.md`
-- **Rules:** Read `docs/04-CONTEXT_MANAGEMENT_RULES.md`
+- **Completed Phases:** Read `docs/03-COMPLETED_PHASES.md`
+- **Future Goals:** Read `docs/04-FUTURE_HORIZONS.md`
+- **Rules:** Read `docs/05-CONTEXT_MANAGEMENT_RULES.md`
 
 Failure to update the documentation alongside code changes is considered a critical error.

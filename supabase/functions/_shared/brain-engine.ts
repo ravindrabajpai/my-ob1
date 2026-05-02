@@ -202,3 +202,172 @@ export async function extractImageText(imageUrl: string): Promise<{ text: string
     const d = await r.json();
     return { text: d.choices?.[0]?.message?.content?.trim() || null, usage: d.usage || null };
 }
+
+/**
+ * Uses an LLM to synthesize a Markdown wiki dossier from a set of memories.
+ */
+export async function generateWikiDossier(entityName: string, entityType: string, memories: any[]): Promise<{ dossier: string | null, usage: any }> {
+    const prompt = `
+You are an expert knowledge compiler. Your task is to synthesize a structured Markdown wiki dossier for the ${entityType} named "${entityName}".
+
+Below are all the raw, unstructured memories and thoughts linked to this entity:
+---
+${memories.map((m: any) => `- [${m.created_at}] ${m.content}`).join("\n")}
+---
+
+Write a comprehensive "Wiki Dossier" in Markdown. You MUST include exactly these 4 sections:
+1. **Summary**: A concise overview of who/what "${entityName}" is, based ONLY on the provided memories.
+2. **Key Facts**: A bulleted list of the most important attributes, beliefs, or known data points.
+3. **Timeline**: A chronological log of significant events, decisions, or interactions (cite the dates).
+4. **Related Entities / Open Questions**: Other entities mentioned in relation to this one, or unresolved questions/tasks.
+
+Be direct, analytical, and avoid hallucinations. If the memories lack enough information for a section, state "Insufficient data." Use modern, clean markdown formatting.
+`;
+
+    try {
+        const response = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json; charset=utf-8",
+            },
+            body: JSON.stringify({
+                model: "openai/gpt-4o-mini",
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.3
+            }),
+        });
+
+        if (!response.ok) return { dossier: null, usage: null };
+
+        const data = await response.json();
+        return { dossier: data.choices[0]?.message?.content?.trim() || null, usage: data.usage || null };
+    } catch (e) {
+        console.error("Wiki generation error:", e);
+        return { dossier: null, usage: null };
+    }
+}
+
+/**
+ * Classifies the semantic relationship between two memories.
+ * Used by the Typed Edge Classifier (Phase 21) to populate `memory_edges`.
+ *
+ * Returns one of six typed relation labels (or "none" when no clear relation exists),
+ * a direction indicator, a confidence score in [0,1], a rationale string, and
+ * optional temporal bounds (valid_from / valid_until as ISO YYYY-MM-DD strings).
+ */
+export async function classifyMemoryEdge(
+    memoryA: { id: string; content: string; created_at: string },
+    memoryB: { id: string; content: string; created_at: string }
+): Promise<{
+    relation: string;    // "supports" | "contradicts" | "evolved_into" | "supersedes" | "depends_on" | "related_to" | "none"
+    direction: string;   // "A_to_B" | "B_to_A" | "symmetric"
+    confidence: number;  // 0.0 – 1.0
+    rationale: string;
+    valid_from: string | null;
+    valid_until: string | null;
+    usage: any;
+}> {
+    const systemPrompt =
+        `You classify the semantic relationship between two captured memories from someone's personal knowledge base.
+
+ALLOWED RELATION TYPES (pick exactly one, or "none"):
+
+  supports      — Memory A strengthens or provides evidence for Memory B.
+                  YES: "slept 8h Tuesday" -> "felt sharp Tuesday morning"
+                  NO: generic topical overlap (use related_to or none).
+
+  contradicts   — Memory A disagrees with or disproves Memory B.
+                  YES: "ran 5mi Tuesday" vs "rested Tuesday"
+                  Be rare with this label — only when the conflict is direct.
+
+  evolved_into  — Memory A was replaced by a refined or updated Memory B over time.
+                  YES: v1 design note -> v2 design note with explicit iteration
+                  NO: same idea restated (use same-topic or none).
+
+  supersedes    — Memory A is the newer replacement for Memory B (for decisions or versions).
+                  YES: "switched to Supabase" -> supersedes -> "decided on Firebase"
+                  The subject is the newer/surviving memory.
+
+  depends_on    — Memory A is conditional on Memory B being true or completing first.
+                  YES: "ship Friday" -> depends_on -> "tests pass"
+
+  related_to    — Generic association; no specific label fits.
+                  Use sparingly. Prefer "none" when in doubt.
+
+RETURN "none" WHEN:
+  - the memories merely co-mention an entity without a directional relation
+  - no specific label is clearly better than related_to
+  - evidence is ambiguous or contradictory within the pair itself
+
+DIRECTION: pick whichever makes the sentence true when you substitute:
+  A <relation> B  (e.g. "Tuesday sleep supports Tuesday sharpness")
+  If direction should be flipped, set direction="B_to_A".
+  If the relation is inherently symmetric, set direction="symmetric".
+
+TEMPORALITY: if the relation has a clear start or end ("was true until Q4 2025"),
+populate valid_from and/or valid_until as ISO YYYY-MM-DD; otherwise null.
+
+OUTPUT strict valid JSON only, no markdown, no commentary:
+{"relation": "<type|none>", "direction": "A_to_B|B_to_A|symmetric", "confidence": 0.0-1.0, "rationale": "...", "valid_from": "YYYY-MM-DD|null", "valid_until": "YYYY-MM-DD|null"}`;
+
+    const userPrompt =
+        `Memory A (id=${memoryA.id}, date=${String(memoryA.created_at).slice(0, 10)}):
+${String(memoryA.content).slice(0, 800)}
+
+Memory B (id=${memoryB.id}, date=${String(memoryB.created_at).slice(0, 10)}):
+${String(memoryB.content).slice(0, 800)}
+
+Classify the relationship.`;
+
+    try {
+        const r = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json; charset=utf-8",
+            },
+            body: JSON.stringify({
+                model: "openai/gpt-4o-mini",
+                response_format: { type: "json_object" },
+                messages: [
+                    { role: "system", content: systemPrompt },
+                    { role: "user", content: userPrompt },
+                ],
+                temperature: 0.1,  // Low temperature for consistent, deterministic classification
+            }),
+        });
+
+        if (!r.ok) {
+            const msg = await r.text().catch(() => "");
+            throw new Error(`classifyMemoryEdge failed: ${r.status} ${msg}`);
+        }
+
+        const d = await r.json();
+        const raw = d.choices?.[0]?.message?.content?.trim() ?? "";
+        const usage = d.usage || null;
+
+        // Strip possible markdown code fence wrappers before parsing
+        const cleaned = raw.replace(/^```(?:json)?/m, "").replace(/```$/m, "").trim();
+        let parsed: any;
+        try {
+            parsed = JSON.parse(cleaned);
+        } catch {
+            console.error("classifyMemoryEdge: JSON parse failed, raw:", raw.slice(0, 200));
+            return { relation: "none", direction: "A_to_B", confidence: 0, rationale: "Parse failed", valid_from: null, valid_until: null, usage };
+        }
+
+        return {
+            relation:    String(parsed.relation    || "none"),
+            direction:   String(parsed.direction   || "A_to_B"),
+            confidence:  typeof parsed.confidence === "number" ? Math.min(1, Math.max(0, parsed.confidence)) : 0,
+            rationale:   String(parsed.rationale   || ""),
+            valid_from:  parsed.valid_from  && parsed.valid_from  !== "null" ? parsed.valid_from  : null,
+            valid_until: parsed.valid_until && parsed.valid_until !== "null" ? parsed.valid_until : null,
+            usage,
+        };
+    } catch (e: any) {
+        console.error("classifyMemoryEdge error:", e.message);
+        return { relation: "none", direction: "A_to_B", confidence: 0, rationale: e.message, valid_from: null, valid_until: null, usage: null };
+    }
+}

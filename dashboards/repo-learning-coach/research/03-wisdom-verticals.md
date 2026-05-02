@@ -32,7 +32,7 @@ The `extractMetadata` prompt in `brain-engine.ts` is dynamically updated when a 
 
 ## Adding a new vertical
 
-See `how-to-add-wisdom-vertical.md` in `.agents/skills/project-context/` for the SOP. The process:
+See `user-manuals/08-adding-wisdom-verticals.md` in `.agents/skills/project-context/` for the SOP. The process:
 
 1. Create a migration for the new tables
 2. Implement the vertical class in `_shared/verticals/`

@@ -29,6 +29,8 @@ The database is **Supabase PostgreSQL** with the `pgvector` extension for semant
 | `016_work_operating_model.sql` | Adds `operating_model_profiles`, `operating_model_sessions`, `operating_model_layer_checkpoints`, `operating_model_entries`, and `operating_model_exports` tables, plus three RPCs for the BYOC workflow. |
 | `017_formalized_workflow_statuses.sql` | Formalizes workflow statuses with CHECK constraint on `tasks` table (`pending`, `in_progress`, `blocked`, `deferred`, `completed`). |
 | `018_repo_learning_coach.sql` | Creates 10 `repo_learning_*` tables for the Repo Learning Coach dashboard: `projects`, `research_documents`, `tracks`, `lessons`, `quizzes`, `quiz_questions`, `lesson_progress`, `quiz_attempts`, `quiz_responses`, `lesson_comments`. All tables have RLS enabled. |
+| `019_obsidian_wiki_compiler.sql` | Creates `entity_wikis` table to cache generated markdown dossiers and sets up `obsidian-wiki-compiler-cron`. |
+| `020_typed_edge_classifier.sql` | Creates `memory_edges` table with typed relation CHECK constraint and `memory_edges_upsert` RPC for idempotent edge insertion. Phase 21 (Reasoning Graph). |
 
 ---
 
@@ -107,6 +109,18 @@ Join table: many-to-many link between memories and entities.
 
 **PK:** `(memory_id, entity_id)`
 
+#### `entity_wikis`
+Cache table for LLM-synthesized markdown dossiers of entities (or learning topics).
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID (PK) | Auto-generated |
+| `reference_id` | UUID NOT NULL | FK to either `entities.id` or `learning_topics.id` |
+| `reference_type` | TEXT NOT NULL | `'entity'` or `'learning_topic'` |
+| `name` | TEXT NOT NULL | Slug or display name |
+| `markdown_content` | TEXT NOT NULL | The LLM-generated dossier |
+| `last_compiled_at` | TIMESTAMPTZ | UTC default |
+
 #### `threads`
 Active streams of work or life logistics.
 
@@ -125,6 +139,26 @@ Join table: many-to-many link between memories and threads.
 | `thread_id` | UUID (FK → threads) | CASCADE on delete |
 
 **PK:** `(memory_id, thread_id)`
+
+#### `memory_edges`
+Typed logical reasoning edges between memories. Populated by the `classify-memory-edges` Edge Function and the `.agents/skills/typed-edge-classifier/classify.ts` local skill.
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID (PK) | Auto-generated |
+| `from_memory_id` | UUID (FK → memories) | CASCADE on delete |
+| `to_memory_id` | UUID (FK → memories) | CASCADE on delete |
+| `relation` | TEXT NOT NULL | `supports`, `contradicts`, `evolved_into`, `supersedes`, `depends_on`, `related_to` |
+| `direction` | TEXT NOT NULL | `A_to_B`, `B_to_A`, or `symmetric` (default: `A_to_B`) |
+| `confidence` | NUMERIC(4,2) | Score in [0.00 – 1.00] from LLM classifier |
+| `support_count` | INT | Evidence accumulation: incremented on re-classification of the same pair |
+| `classifier_version` | TEXT | Semver tag for the prompt/vocabulary used (e.g. `typed-edge-classifier-1.0.0`) |
+| `valid_from` | DATE | Optional: relation start date (ISO YYYY-MM-DD) |
+| `valid_until` | DATE | Optional: relation end date (ISO YYYY-MM-DD) |
+| `metadata` | JSONB | `{ rationale, classifier_model, direction }` |
+| `created_at` | TIMESTAMPTZ | UTC default |
+
+**Constraints:** `UNIQUE(from_memory_id, to_memory_id, relation)` — same pair can have multiple relation types. No self-loops (`from_memory_id <> to_memory_id`).
 
 ---
 
@@ -244,6 +278,24 @@ match_memories(
 
 **Algorithm:** Cosine distance (`<=>` operator) across both memories and artifacts. When an artifact matches, it returns its parent memory. The system groups by `memory_id` and takes the maximum similarity score among the base memory and all its attachments, ordered by similarity.
 
+### `memory_edges_upsert`
+
+Idempotent upsert for typed reasoning edges. On conflict (same `from_memory_id`, `to_memory_id`, `relation` triplet) it bumps `support_count`, takes the max `confidence`, widens temporal bounds (LEAST `valid_from`, GREATEST `valid_until`), and refreshes `metadata`.
+
+```sql
+memory_edges_upsert(
+    p_from_memory_id    UUID,
+    p_to_memory_id      UUID,
+    p_relation          TEXT,
+    p_confidence        NUMERIC,
+    p_support_count     INT     DEFAULT 1,
+    p_classifier_version TEXT   DEFAULT 'typed-edge-classifier-1.0.0',
+    p_valid_from        DATE    DEFAULT NULL,
+    p_valid_until       DATE    DEFAULT NULL,
+    p_metadata          JSONB   DEFAULT NULL
+) RETURNS public.memory_edges
+```
+
 ### `merge_entities`
 
 Safely deduplicates the Knowledge Graph by merging a source entity into a target entity, securely handling `memory_entities` unique constraint conflicts, and deleting the source entity.
@@ -300,7 +352,10 @@ erDiagram
     memories ||--o{ system_insights : "has"
     memories ||--o{ memory_entities : "links"
     memories ||--o{ memory_threads : "links"
+    memories ||--o{ memory_edges : "from edges"
+    memories ||--o{ memory_edges : "to edges"
     entities ||--o{ memory_entities : "links"
+    entities ||--o| entity_wikis : "has dossier"
     threads ||--o{ memory_threads : "links"
     taste_preferences }o--|| system_insights : "evaluated by"
 ```

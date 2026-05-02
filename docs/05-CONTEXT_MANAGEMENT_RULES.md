@@ -24,7 +24,7 @@ Before formulating ANY plan or writing ANY code, you MUST:
 2. Read the module-specific files relevant to the task:
    - **Database work** → read `schema-state.md`
    - **Edge Function / ingestion / MCP work** → read `edge-functions.md`
-   - **Planning / scoping** → read `roadmap.md`
+   - **Planning / scoping** → read `03-COMPLETED_PHASES.md` and `04-FUTURE_HORIZONS.md`
 3. Read `.agents/workflows/development-loop.yaml` and follow it as your execution protocol.
 
 You MUST NOT skip this step. You MUST NOT rely on memory from previous conversations. Read the files fresh every time.

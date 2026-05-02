@@ -732,6 +732,45 @@ server.registerTool(
   }
 );
 
+// Tool 18: List Memory Edges (Reasoning Graph)
+server.registerTool(
+  "list_memory_edges",
+  {
+    title: "List Memory Edges",
+    description: "List typed reasoning edges in the Knowledge Graph. Each edge represents an explicit logical relationship (supports, contradicts, evolved_into, supersedes, depends_on, related_to) between two memories. Use this to explore how thoughts logically connect.",
+    inputSchema: {
+      memory_id: z.string().uuid().optional().describe("Filter edges by source memory ID (from_memory_id)"),
+      relation: z.enum(["supports", "contradicts", "evolved_into", "supersedes", "depends_on", "related_to"]).optional().describe("Filter by relation type"),
+      limit: z.number().optional().default(20),
+    },
+  },
+  async ({ memory_id, relation, limit }: { memory_id?: string, relation?: string, limit?: number }) => {
+    try {
+      let query = supabase
+        .from("memory_edges")
+        .select("id, from_memory_id, to_memory_id, relation, direction, confidence, metadata, created_at")
+        .order("created_at", { ascending: false })
+        .limit(limit || 20);
+
+      if (memory_id) query = query.eq("from_memory_id", memory_id);
+      if (relation) query = query.eq("relation", relation);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      if (!data?.length) return { content: [{ type: "text" as const, text: "No memory edges found." }] };
+
+      const output = data.map((e: any) => {
+        const rationale = e.metadata?.rationale ? ` — "${e.metadata.rationale.slice(0, 100)}"` : "";
+        return `- [${e.relation}] ${e.from_memory_id.slice(0, 8)}… -[${e.direction}]-> ${e.to_memory_id.slice(0, 8)}… (conf=${e.confidence})${rationale}`;
+      }).join("\n");
+
+      return { content: [{ type: "text" as const, text: `Memory Edges (Reasoning Graph):\n${output}` }] };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
 // --- Hono App with Auth Check ---
 
 const app = new Hono();

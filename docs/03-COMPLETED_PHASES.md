@@ -1,10 +1,8 @@
-# Open Brain Roadmap
+# Completed Phases
 
 > **Parent Index:** [SKILL.md](./SKILL.md) — Read the root index first.
 
 ---
-
-## Completed Phases
 
 ### Phase 0: Baseline MVP
 - [x] Single `thoughts` table with `pgvector`
@@ -99,7 +97,7 @@
 - [x] **First Extension (Learning):** Built targeted schema additions (`learning_topics`, `learning_milestones`) representing the Learning & Skills domain.
 - [x] **Dynamic Routing Upgrades:** Updated `extractMetadata` system prompt and `process-memory` payload ingestion to dynamically recognize and route attributes strictly to configured extension tables via the `WisdomVertical` interface.
 - [x] **Agent/Human Interfaces:** Deployed MCP tools (`list_learning_topics`, `add_learning_milestone`, `update_mastery_status`) and Slack prefix routing (`done:`) ensuring tables can be independently managed securely.
-- [x] **SOP Authored:** Added developer documentation in `how-to-add-wisdom-vertical.md` to safely replicate this process for future verticals.
+- [x] **SOP Authored:** `user-manuals/08-adding-wisdom-verticals.md` to safely replicate this process for future verticals.
 
 ### Phase 16: System Observability & Persistent Configuration (Hardening)
 - [x] **Config Table Migration:** Replaced restricted Database GUCs with a `system_config` table for project credentials.
@@ -118,12 +116,13 @@
 - [x] **Formalized Workflow Statuses:** Expanded task states to include `pending`, `in_progress`, `blocked`, `deferred`, and `completed`. Added check constraint and `update_task_status` MCP tool.
 - [x] **World-Model Diagnostic & Signal Diffs:** Integrated automated contradiction auditing and strategic drift detection into the `automated-synthesis` pipeline by supplying the previous report to the synthesis engine.
 
+### Phase 20: The Obsidian Wiki Compiler (Orchestration & Entity Pages)
+- [x] **Server-Side Generation:** Built the `entity-wiki-generator` Edge Function and `obsidian-wiki-compiler-cron` `pg_cron` schedule to synthesize markdown dossiers (Summary, Timeline, Related Entities) for specific entities and learning topics, cached in `entity_wikis`.
+- [x] **Local Sync CLI:** Created a local script (`.agents/skills/obsidian-wiki-compiler/sync-wikis.ts`) to write the compiled dossiers directly into the local Obsidian Vault as an auto-updating, browsable frontend.
 
----
-
-## Future Horizons (Prioritized)
-
-### Deferred / Icebox
-
-- Dashboard / reporting Edge Function
-- **Self-Hosted Kubernetes Deployment:** Adapt the OB1 helm charts/blueprints to create a fully local, self-contained PostgreSQL + pgvector deployment for `my-ob1` as a future-proofing measure.
+### Phase 21: Typed Edge Classifier (Reasoning Graph)
+- [x] **Reasoning Graph Schema:** Created `memory_edges` table with 6-label typed relation vocabulary (`supports`, `contradicts`, `evolved_into`, `supersedes`, `depends_on`, `related_to`), direction, confidence, and temporal bounds. `memory_edges_upsert` RPC handles idempotent insertion. Migration `020_typed_edge_classifier.sql`.
+- [x] **Edge Function:** Deployed `classify-memory-edges` Edge Function. Samples candidate pairs via entity co-occurrence (`memory_entities`), classifies via `classifyMemoryEdge()` in `brain-engine.ts`, upserts edges via RPC.
+- [x] **LLM Classifier:** Added `classifyMemoryEdge(memoryA, memoryB)` to `_shared/brain-engine.ts`. Uses GPT-4o-mini via OpenRouter with deterministic temperature (0.1) and `response_format: json_object`.
+- [x] **Local Skill:** Ported OB1 `classify-edges.mjs` to Deno/TypeScript at `.agents/skills/typed-edge-classifier/classify.ts` with `--dry-run`, `--pair`, `--limit`, and `--min-confidence` flags.
+- [x] **MCP Tool:** Added read-only `list_memory_edges` tool to `open-brain-mcp` exposing the reasoning graph to AI clients.

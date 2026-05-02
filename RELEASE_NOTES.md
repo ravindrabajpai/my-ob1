@@ -68,7 +68,7 @@ Phase 1 established a secure, version-controlled foundation.
 1. **Shared AI Engine (`_shared/brain-engine.ts`)**: Extracted OpenRouter integration into a central module reused across both Edge Functions.
 2. **Infrastructure-as-Code**: Initialized Supabase migrations for reproducible deployments.
 3. **Cryptographic Security**: Implemented Slack Request Verification using `SLACK_SIGNING_SECRET` with HMAC-SHA256 and 5-minute replay protection.
-4. **Context Synchronization**: `schema-state.md` and `roadmap.md` established for agentic workflows.
+4. **Context Synchronization**: `schema-state.md`, `03-COMPLETED_PHASES.md` and `04-FUTURE_HORIZONS.md` established for agentic workflows.
 
 ---
 

@@ -1,8 +1,6 @@
-# How to Add a Wisdom Vertical (Domain-Specific Extension)
+# 08. Developer Guide: Adding Wisdom Verticals
 
-> **Parent Index:** [SKILL.md](./SKILL.md) — Read the root index first.
-
-This guide provides standard operating procedures (SOP) for adding a new Domain-Specific Graph Extension (Wisdom Vertical) to the Open Brain using the scalable Vertical Framework.
+This guide provides standard operating procedures (SOP) for developers adding a new Domain-Specific Graph Extension (Wisdom Vertical) to the Open Brain using the scalable Vertical Framework.
 
 ## 1. Create the Database Schema Requirements
 1. Create a new SQL migration in `supabase/migrations/` (e.g., `013_wisdom_vertical_finance.sql`).
@@ -22,6 +20,7 @@ This guide provides standard operating procedures (SOP) for adding a new Domain-
 1. Open `supabase/functions/_shared/verticals/index.ts`.
 2. Import your new vertical implementation.
 3. Add it to the `activeVerticals` array.
+
 *That's it!* The `brain-engine.ts` metadata extractor and `process-memory` ingestion pipeline will automatically pick up your schema, build the prompt, and delegate ingestion without further code changes.
 
 ## 4. Add the AI/Human Interfaces (MCP Tools)

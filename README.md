@@ -11,7 +11,7 @@ An AI-powered second brain that captures your raw thoughts from Slack, extracts 
 
 ---
 
-📖 **[USER MANUAL](./USER_MANUAL.md)** — Go here for daily usage, Slack commands, and MCP tips.
+📖 **[USER MANUALS](./user-manuals/README.md)** — Go here for daily usage, Slack commands, and MCP tips.
 
 ---
 
@@ -243,7 +243,7 @@ open-brain/
 │   └── workflows/
 ├── README.md
 ├── RELEASE_NOTES.md
-└── USER_MANUAL.md
+├── user-manuals/
 ```
 
 ---
