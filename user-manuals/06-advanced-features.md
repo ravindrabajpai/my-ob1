@@ -90,3 +90,8 @@ The **Sensitivity Gate** is a zero-latency privacy layer that scans all incoming
 - **🚨 restricted**: Contains hard PII (SSNs, API keys, Passwords, etc.).
 
 For more details, see the dedicated [Sensitivity Scanning Manual](./09-sensitivity-scanning.md).
+
+## 📦 Data Portability & Backups
+You can export your entire Knowledge Graph to version-controlled JSON files using the **Brain Backup** CLI. This ensures your data is always safe and portable.
+
+For detailed instructions, see the [Data Portability & Backups Manual](./10-data-backups.md).

@@ -20,8 +20,9 @@ All server-side logic runs as **Supabase Edge Functions** written in **Deno/Type
 | `entity-wiki-generator` | `supabase/functions/entity-wiki-generator/index.ts` | Cron job (`obsidian-wiki-compiler-cron`) → generates markdown dossiers for entities with 3+ linked memories |
 | `thread-summarizer` | `supabase/functions/thread-summarizer/index.ts` | Cron job (`thread-summarizer-cron`) → consolidates memories into high-level thread summary dossiers |
 | `classify-memory-edges` | `supabase/functions/classify-memory-edges/index.ts` | On-demand HTTP trigger → samples entity co-occurrence candidate pairs and classifies typed reasoning edges into `memory_edges` |
-| `classify-memory-edges` | `supabase/functions/classify-memory-edges/index.ts` | On-demand HTTP trigger → samples entity co-occurrence candidate pairs and classifies typed reasoning edges into `memory_edges` |
+| `open-brain-dashboard-api`| `supabase/functions/open-brain-dashboard-api/index.ts` | REST API gateway providing reporting endpoints (`/stats`, `/memories`, etc.) for web dashboards |
 | `_shared/brain-engine.ts` | `supabase/functions/_shared/brain-engine.ts` | Shared AI module (embeddings, metadata extraction, goal evaluation) |
+
 
 ---
 
@@ -228,6 +229,7 @@ npx supabase functions deploy work-operating-model-mcp --no-verify-jwt --workdir
 npx supabase functions deploy open-brain-mcp --no-verify-jwt --workdir .
 npx supabase functions deploy entity-wiki-generator --no-verify-jwt --workdir .
 npx supabase functions deploy classify-memory-edges --no-verify-jwt --workdir .
+npx supabase functions deploy open-brain-dashboard-api --no-verify-jwt --workdir .
 # Phase 22 — no new Edge Function needed; entity edges are produced by process-memory and open-brain-mcp
 ```
 
@@ -238,6 +240,7 @@ npx supabase functions deploy classify-memory-edges --no-verify-jwt --workdir .
 | `ingest-thought` | `https://<PROJECT_REF>.supabase.co/functions/v1/ingest-thought` |
 | `work-operating-model-mcp` | `https://<PROJECT_REF>.supabase.co/functions/v1/work-operating-model-mcp?key=<MCP_ACCESS_KEY>` |
 | `open-brain-mcp` | `https://<PROJECT_REF>.supabase.co/functions/v1/open-brain-mcp?key=<MCP_ACCESS_KEY>` |
+| `open-brain-dashboard-api` | `https://<PROJECT_REF>.supabase.co/functions/v1/open-brain-dashboard-api?key=<MCP_ACCESS_KEY>` |
 
 ---
 
@@ -268,3 +271,17 @@ If these values are missing from the table, the functions will attempt to fallba
 | Gap | Impact |
 |-----|--------|
 | Only simple files (images, text) supported natively by Edge Functions | Massive spreadsheets or complex PDFs still rely on the out-of-band `heavy-file-ingestion` scripts prior to upload. |
+
+---
+
+## 7. Local Skills & CLI Tools
+
+While the core brain runs in the cloud, specific maintenance and versioning tasks are handled via local Deno scripts located in `.agents/skills/`.
+
+| Skill | Path | Purpose |
+|-------|------|---------|
+| **Brain Backup** | `.agents/skills/brain-backup/backup.ts` | Paginates through PostgREST to export all core tables to dated JSON files. |
+| **Obsidian Wiki Compiler** | `.agents/skills/obsidian-wiki-compiler/sync-wikis.ts` | Syncs cached `entity_wikis` from Supabase to a local Obsidian vault. |
+| **Typed Edge Classifier** | `.agents/skills/typed-edge-classifier/classify.ts` | Retroactive/bulk classification of semantic memory relationships. |
+| **Entity Relationship Backfill** | `.agents/skills/entity-relationship-backfill/classify.ts` | Retroactive/bulk extraction of entity-to-entity relationships. |
+| **Retroactive Enrichment** | `.agents/skills/retroactive-enrichment/backfill.ts` | Re-scans historical memories for PII and sensitivity tiers. |

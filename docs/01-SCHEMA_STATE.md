@@ -35,6 +35,7 @@ The database is **Supabase PostgreSQL** with the `pgvector` extension for semant
 | `022_thread_summarization.sql` | Extends `entity_wikis` and `memory_edges` to support thread summarization dossiers and `derived_from` provenance edges. Phase 23. |
 | `023_retroactive_enrichment_sensitivity.sql` | Adds `sensitivity_tier` column to `memories` and `set_memory_sensitivity` RPC. Phase 24. |
 | `024_fix_sensitivity_column.sql` | Ensures `sensitivity_tier` column is applied (Hotfix for sequential migration sync issue). Phase 24. |
+| `025_dashboard_reporting.sql` | Creates `get_dashboard_stats()` RPC for the `open-brain-dashboard-api` edge function. Phase 26. |
 
 ---
 
@@ -368,6 +369,14 @@ set_memory_sensitivity(
     p_memory_id UUID,
     p_tier      TEXT
 ) RETURNS VOID
+```
+
+### `get_dashboard_stats`
+
+Efficiently computes aggregate counts and type distributions for the `open-brain-dashboard-api` REST endpoint. `SECURITY DEFINER`.
+
+```sql
+get_dashboard_stats() RETURNS json
 ```
 
 ### `merge_entities`

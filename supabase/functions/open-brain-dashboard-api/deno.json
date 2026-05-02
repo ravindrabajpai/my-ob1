@@ -1,0 +1,9 @@
+{
+  "tasks": {
+    "start": "deno run --allow-net --allow-env index.ts"
+  },
+  "imports": {
+    "hono": "npm:hono@4.0.0",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.47.10"
+  }
+}

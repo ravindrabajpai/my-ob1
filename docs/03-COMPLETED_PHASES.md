@@ -146,3 +146,15 @@
 - [x] **Sensitivity Scanning:** Regex-based classifier `scanSensitivity(text)` in `brain-engine.ts` categorizes memories into `standard`, `personal`, or `restricted` with zero latency.
 - [x] **Ingestion Gates:** Applied sensitivity gate to `ingest-thought` (Slack) and `capture_memory` (MCP), storing results in the new `sensitivity_tier` column (migration `023_retroactive_enrichment_sensitivity.sql`).
 - [x] **Retroactive Backfill:** Created local Deno CLI skill at `.agents/skills/retroactive-enrichment/backfill.ts` to iterate historical memories, re-scan content, and update tiers via a `SECURITY DEFINER` RPC.
+
+### Phase 25: Local Brain Backup & Export
+- [x] **Standalone Deno CLI:** Created `.agents/skills/brain-backup/backup.ts` to paginate through the PostgREST API and export all core tables (17 tables) to local JSON files.
+- [x] **Memory-Efficient Pagination:** Implemented 1,000-row chunking to handle large datasets without local memory bloat.
+- [x] **Dated Versioning:** Automated export to a `backup/` directory with dated filenames for version-controlled data portability.
+- [x] **Skill Documentation:** Authored `SKILL.md` for local execution and best practices (automation via cron, private repo storage).
+
+### Phase 26: Dashboard / Reporting Edge Function
+- [x] **REST API Gateway:** Deployed `open-brain-dashboard-api` using Hono to provide standard HTTP endpoints (`/stats`, `/memories`, `/tasks`, `/search`) for web dashboards.
+- [x] **Optimized Statistics:** Created `get_dashboard_stats()` RPC to efficiently compute aggregate counts and distributions.
+- [x] **Auth Alignment:** Validates `x-brain-key` header to ensure it strictly matches the existing `MCP_ACCESS_KEY`.
+

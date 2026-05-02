@@ -52,36 +52,15 @@ server.registerTool(
 
       if (!data || data.length === 0) {
         return {
-          content: [{ type: "text" as const, text: `No memories found matching "${query}".` }],
+          content: [{ type: "text" as const, text: JSON.stringify([]) }],
         };
       }
-
-      const results = await Promise.all(data.map(async (t: any, i: number) => {
-        // Fetch tasks for this memory
-        const { data: tasks } = await supabase.from("tasks").select("description, status").eq("memory_id", t.id);
-        const { data: entityData } = await supabase.from("memory_entities").select("entities(name)").eq("memory_id", t.id);
-
-        const parts = [
-          `--- Result ${i + 1} (${(t.similarity * 100).toFixed(1)}% match) ---`,
-          `Captured: ${new Date(t.created_at).toLocaleDateString()}`,
-          `Type: ${t.type || "unknown"}`,
-        ];
-
-        if (tasks && tasks.length > 0) {
-          parts.push(`Tasks: ${tasks.map((tk: any) => `[${tk.status}] ${tk.description}`).join("; ")}`);
-        }
-        if (entityData && entityData.length > 0) {
-          parts.push(`Entities: ${entityData.map((e: any) => e.entities.name).join(", ")}`);
-        }
-        parts.push(`\n${t.content}`);
-        return parts.join("\n");
-      }));
 
       return {
         content: [
           {
             type: "text" as const,
-            text: `Found ${data.length} memory(s):\n\n${results.join("\n\n")}`,
+            text: JSON.stringify(data),
           },
         ],
       };
@@ -350,15 +329,8 @@ server.registerTool(
         }
       }
 
-      let confirmation = `Captured as ${meta.memory_type || "observation"}`;
-      if (meta.extracted_tasks?.length) confirmation += ` | Tasks: ${meta.extracted_tasks.length}`;
-      if (linkedEntitiesCount) confirmation += ` | Entities: ${linkedEntitiesCount}`;
-      if (entityEdgesCount) confirmation += ` | Entity Edges: ${entityEdgesCount}`;
-      if (linkedThreadsCount) confirmation += ` | Threads: ${linkedThreadsCount}`;
-      if (insightText) confirmation += ` | Insight: ${insightText}`;
-
       return {
-        content: [{ type: "text" as const, text: confirmation }],
+        content: [{ type: "text" as const, text: JSON.stringify({ memory_id: memoryId, message: `Captured as ${meta.memory_type || "observation"}` }) }],
       };
     } catch (err: unknown) {
       return {
