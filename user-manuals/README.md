@@ -14,6 +14,7 @@ This directory contains comprehensive user documentation to help you get the mos
 6. [Advanced Features](./06-advanced-features.md) - Automated Synthesis, Obsidian Wiki Compiler, Thread Summarization (consolidating long threads into wiki dossiers), the Reasoning Graph (Typed Edges), and the **Entity Knowledge Graph** (entity relationship traversal).
 7. [Troubleshooting & Security](./07-troubleshooting.md) - Security layers, operations, and troubleshooting automated tasks.
 8. [Developer Guide: Adding Wisdom Verticals](./08-adding-wisdom-verticals.md) - SOP for extending the graph.
+9. [Sensitivity Scanning](./09-sensitivity-scanning.md) - Automatic PII detection, privacy tiers, and retroactive backfilling.
 
 ---
 

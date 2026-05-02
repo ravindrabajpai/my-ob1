@@ -81,3 +81,12 @@ The **Enhanced Knowledge Graph** allows you to navigate explicit, directed relat
 
 **Populating Relationships:**
 Relationships are **automatically extracted** whenever you capture a memory that mentions two or more related entities.
+## 🛡️ Sensitivity Scanning (Privacy Tiers)
+The **Sensitivity Gate** is a zero-latency privacy layer that scans all incoming thoughts for sensitive patterns (PII, credentials, health data) and assigns a **Sensitivity Tier**.
+
+**Tiers:**
+- **🔓 standard**: Safe for general processing.
+- **🔒 personal**: Contains health, medications, or financial data.
+- **🚨 restricted**: Contains hard PII (SSNs, API keys, Passwords, etc.).
+
+For more details, see the dedicated [Sensitivity Scanning Manual](./09-sensitivity-scanning.md).
