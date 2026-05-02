@@ -99,6 +99,7 @@ Slack Message (+ optional file attachments)
 | Phase 20: The Obsidian Wiki Compiler | ✅ Complete | `entity-wiki-generator` Edge Function + `obsidian-wiki-compiler-cron` schedule. Local sync CLI at `.agents/skills/obsidian-wiki-compiler/`. |
 | Phase 21: Typed Edge Classifier (Reasoning Graph) | ✅ Complete | `memory_edges` table + `memory_edges_upsert` RPC. `classify-memory-edges` Edge Function. `classifyMemoryEdge()` in `brain-engine.ts`. Local skill at `.agents/skills/typed-edge-classifier/`. `list_memory_edges` MCP tool. |
 | Phase 22: Enhanced Knowledge Graph (Explicit Entity Relationships) | ✅ Complete | `entity_edges` table + `entity_edges_upsert`, `traverse_entity_graph`, `find_entity_path` RPCs. `entity_relationships[]` auto-extraction in `extractMetadata`. Step 6d.5 in `process-memory` and `capture_memory`. 4 new MCP tools (`get_entity_neighbors`, `traverse_entity_graph`, `find_entity_path`, `list_entity_edge_types`). Backfill skill at `.agents/skills/entity-relationship-backfill/`. |
+| Phase 23: Thread Summarization (Wiki Synthesis) | ✅ Complete | `thread-summarizer` Edge Function + `thread-summarizer-cron`. Extended `entity_wikis` and `memory_edges` (`derived_from`). New `generateThreadSummary()` in `brain-engine.ts`. New MCP tool `summarize_thread`. Local skill at `.agents/skills/thread-summarizer/`. |
 
 **What is NOT yet built** (see [04-FUTURE_HORIZONS.md](./04-FUTURE_HORIZONS.md) for details):
 *(All core phases and initial vertical infrastructure are deployed)*

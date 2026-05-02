@@ -54,3 +54,30 @@ deno run --allow-net --allow-env .agents/skills/typed-edge-classifier/classify.t
 # Live run — write edges to the database
 deno run --allow-net --allow-env .agents/skills/typed-edge-classifier/classify.ts --limit 50
 ```
+
+## 🧵 Thread Summarization (Wiki Synthesis)
+As your conversations and projects grow, specific threads can become cluttered with dozens of memories. The **Thread Summarizer** consolidates these long-running streams into high-level dossiers to improve retrieval efficiency and keep the context clear.
+
+**Key Features:**
+1.  **Dossier Generation:** Synthesizes a 4-section summary: Core Theme, Key Decisions/Milestones, Open Questions, and Primary Entities.
+2.  **Searchability:** The summary is inserted back into your core `memories` table, making it searchable via standard vector search.
+3.  **Provenance:** Each summary maintains `derived_from` edges linking back to every source memory, ensuring no data is lost.
+
+**How to Trigger:**
+- **Automated:** Runs every **Tuesday at 03:00 AM UTC** for threads with 5+ memories or threads older than 14 days.
+- **Manual (MCP):** Use the `summarize_thread` tool in any AI client with a `thread_id`.
+- **Manual (CLI):**
+  ```bash
+  deno run -A .agents/skills/thread-summarizer/summarize.ts --thread=<UUID>
+  ```
+
+## 🗺️ Entity Knowledge Graph (Relationship Traversal)
+The **Enhanced Knowledge Graph** allows you to navigate explicit, directed relationships between people, projects, and concepts (e.g., *Person X "works_on" Project Y*).
+
+**Traversal Tools:**
+- `get_entity_neighbors`: See everything directly connected to a specific node.
+- `traverse_entity_graph`: Walk the graph multiple hops deep to find indirect connections.
+- `find_entity_path`: Find the shortest logical path between any two entities in your brain.
+
+**Populating Relationships:**
+Relationships are **automatically extracted** whenever you capture a memory that mentions two or more related entities.

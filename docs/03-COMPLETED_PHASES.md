@@ -134,3 +134,11 @@
 - [x] **MCP Tools (×4):** Added `get_entity_neighbors`, `traverse_entity_graph`, `find_entity_path`, and `list_entity_edge_types` to `open-brain-mcp`. All read-only (no queue).
 - [x] **Backfill Skill:** Local Deno CLI at `.agents/skills/entity-relationship-backfill/classify.ts` for retroactive backfill of historical entity pairs with `--dry-run`, `--limit`, `--min-co-occurrence`, and `--min-confidence` flags.
 
+
+### Phase 23: Thread Summarization (Wiki Synthesis)
+- [x] **New Edge Function:** Deployed `thread-summarizer` Edge Function for consolidating memories into high-level thread summary dossiers.
+- [x] **Schema Extensions:** Extended `entity_wikis.reference_type` to allow `'thread'` and added `summary_memory_id` FK. Extended `memory_edges.relation` to allow `'derived_from'` provenance edges.
+- [x] **LLM Synthesizer:** Added `generateThreadSummary()` to `_shared/brain-engine.ts` (GPT-4o-mini at temp 0.25).
+- [x] **Scheduled Job:** Configured `thread-summarizer-cron` in migration `022_thread_summarization.sql` to run every Tuesday at 3:00 AM.
+- [x] **MCP Tool:** Added `summarize_thread` tool to `open-brain-mcp` for operator-level control over summarization.
+- [x] **Local Skill:** Created `.agents/skills/thread-summarizer/` with `SKILL.md` and `summarize.ts` CLI.

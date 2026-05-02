@@ -32,6 +32,7 @@ The database is **Supabase PostgreSQL** with the `pgvector` extension for semant
 | `019_obsidian_wiki_compiler.sql` | Creates `entity_wikis` table to cache generated markdown dossiers and sets up `obsidian-wiki-compiler-cron`. |
 | `020_typed_edge_classifier.sql` | Creates `memory_edges` table with typed relation CHECK constraint and `memory_edges_upsert` RPC for idempotent edge insertion. Phase 21 (Reasoning Graph). |
 | `021_enhanced_knowledge_graph.sql` | Creates `entity_edges` table for typed directed relationships between entities. Adds `entity_edges_upsert`, `traverse_entity_graph`, and `find_entity_path` RPCs. Phase 22 (Enhanced Knowledge Graph). |
+| `022_thread_summarization.sql` | Extends `entity_wikis` and `memory_edges` to support thread summarization dossiers and `derived_from` provenance edges. Phase 23. |
 
 ---
 
@@ -120,6 +121,7 @@ Cache table for LLM-synthesized markdown dossiers of entities (or learning topic
 | `reference_type` | TEXT NOT NULL | `'entity'` or `'learning_topic'` |
 | `name` | TEXT NOT NULL | Slug or display name |
 | `markdown_content` | TEXT NOT NULL | The LLM-generated dossier |
+| `summary_memory_id` | UUID (FK → memories) | Link to the summary memory in core table (nullable) |
 | `last_compiled_at` | TIMESTAMPTZ | UTC default |
 
 #### `threads`
@@ -149,7 +151,7 @@ Typed logical reasoning edges between memories. Populated by the `classify-memor
 | `id` | UUID (PK) | Auto-generated |
 | `from_memory_id` | UUID (FK → memories) | CASCADE on delete |
 | `to_memory_id` | UUID (FK → memories) | CASCADE on delete |
-| `relation` | TEXT NOT NULL | `supports`, `contradicts`, `evolved_into`, `supersedes`, `depends_on`, `related_to` |
+| `relation` | TEXT NOT NULL | `supports`, `contradicts`, `evolved_into`, `supersedes`, `depends_on`, `related_to`, `derived_from` |
 | `direction` | TEXT NOT NULL | `A_to_B`, `B_to_A`, or `symmetric` (default: `A_to_B`) |
 | `confidence` | NUMERIC(4,2) | Score in [0.00 – 1.00] from LLM classifier |
 | `support_count` | INT | Evidence accumulation: incremented on re-classification of the same pair |

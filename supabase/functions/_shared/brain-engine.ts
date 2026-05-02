@@ -386,3 +386,51 @@ Classify the relationship.`;
         return { relation: "none", direction: "A_to_B", confidence: 0, rationale: e.message, valid_from: null, valid_until: null, usage: null };
     }
 }
+
+/**
+ * Uses an LLM to synthesize a high-level summary dossier for a specific thread.
+ */
+export async function generateThreadSummary(
+    threadName: string,
+    memories: { content: string; created_at: string }[]
+): Promise<{ summary: string | null; usage: any }> {
+    const prompt = `
+You are an expert knowledge synthesizer. Your task is to consolidate a long-running thread named "${threadName}" into a high-level "Thread Summary".
+
+Below are the raw memories and observations linked to this thread:
+---
+${memories.map((m: any) => `- [${m.created_at}] ${m.content}`).join("\n")}
+---
+
+Write a concise, factual summary (100-300 words) in Markdown. You MUST include exactly these 4 sections:
+1. **Core Theme**: What is the primary topic or goal of this thread?
+2. **Key Decisions & Milestones**: What was decided or achieved? Cite approximate dates if possible.
+3. **Open Questions & Pending Tasks**: What remains unresolved or needs further action?
+4. **Primary Entities**: Which people, projects, or concepts are central to this thread?
+
+Be direct and analytical. If data is sparse, acknowledge it rather than inventing details. Use clean markdown formatting.
+`;
+
+    try {
+        const response = await fetch(`${OPENROUTER_BASE}/chat/completions`, {
+            method: "POST",
+            headers: {
+                "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+                "Content-Type": "application/json; charset=utf-8",
+            },
+            body: JSON.stringify({
+                model: "openai/gpt-4o-mini",
+                messages: [{ role: "user", content: prompt }],
+                temperature: 0.25
+            }),
+        });
+
+        if (!response.ok) return { summary: null, usage: null };
+
+        const data = await response.json();
+        return { summary: data.choices[0]?.message?.content?.trim() || null, usage: data.usage || null };
+    } catch (e) {
+        console.error("Thread summary generation error:", e);
+        return { summary: null, usage: null };
+    }
+}

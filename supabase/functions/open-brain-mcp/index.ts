@@ -977,6 +977,51 @@ server.registerTool(
   }
 );
 
+// Tool 23: Summarize Thread
+server.registerTool(
+  "summarize_thread",
+  {
+    title: "Summarize Thread",
+    description: "Trigger thread summarization for a specific thread. Consolidates memories into a single high-level summary and creates derived_from edges for provenance. Use this when a thread becomes long or needs a definitive digest.",
+    inputSchema: {
+      thread_id: z.string().uuid().describe("The UUID of the thread to summarize"),
+      dry_run: z.boolean().optional().default(false).describe("If true, only reports eligibility without writing to DB"),
+    },
+  },
+  async ({ thread_id, dry_run }: { thread_id: string, dry_run?: boolean }) => {
+    try {
+      // We call the thread-summarizer Edge Function directly via internal URL or PROJECT_REF URL.
+      // Since this runs in an Edge Function, we can use the project's internal service role key.
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/thread-summarizer`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ thread_id, dry_run }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Edge Function call failed: ${response.status} ${errText}`);
+      }
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.error || "Unknown error in summarizer");
+
+      const resText = dry_run
+        ? `Dry run successful for thread ${thread_id}. Status: ${result.results?.[0]?.status || "unknown"}.`
+        : `Thread ${thread_id} summarized successfully. Summary Memory ID: ${result.results?.[0]?.summary_memory_id || "unknown"}.`;
+
+      return {
+        content: [{ type: "text" as const, text: resText }],
+      };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
 // --- Hono App with Auth Check ---
 
 const app = new Hono();

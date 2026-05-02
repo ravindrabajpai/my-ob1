@@ -18,6 +18,8 @@ All server-side logic runs as **Supabase Edge Functions** written in **Deno/Type
 | `work-operating-model-mcp` | `supabase/functions/work-operating-model-mcp/index.ts` | REST API for BYOC five-layer interview workflow and portable context bundle export |
 | `open-brain-mcp` | `supabase/functions/open-brain-mcp/index.ts` | MCP server exposing tools to AI clients |
 | `entity-wiki-generator` | `supabase/functions/entity-wiki-generator/index.ts` | Cron job (`obsidian-wiki-compiler-cron`) → generates markdown dossiers for entities with 3+ linked memories |
+| `thread-summarizer` | `supabase/functions/thread-summarizer/index.ts` | Cron job (`thread-summarizer-cron`) → consolidates memories into high-level thread summary dossiers |
+| `classify-memory-edges` | `supabase/functions/classify-memory-edges/index.ts` | On-demand HTTP trigger → samples entity co-occurrence candidate pairs and classifies typed reasoning edges into `memory_edges` |
 | `classify-memory-edges` | `supabase/functions/classify-memory-edges/index.ts` | On-demand HTTP trigger → samples entity co-occurrence candidate pairs and classifies typed reasoning edges into `memory_edges` |
 | `_shared/brain-engine.ts` | `supabase/functions/_shared/brain-engine.ts` | Shared AI module (embeddings, metadata extraction, goal evaluation) |
 
@@ -37,6 +39,7 @@ All LLM operations are centralized here. Both Edge Functions import from this mo
 | `evaluateAgainstTastePreferences(memoryText, preferences[])` | `openai/gpt-4o-mini` | Evaluates against active taste preferences using their WANT/REJECT guardrails; returns insight + usage. |
 | `generateSynthesis(memories, tasks, insights, activePreferences, previousReport)` | `openai/gpt-4o-mini` | Extracts patterns, summarizes a weekly backlog against structured preferences into a single markdown digest, and performs contradiction auditing \& signal diffs against the previous report. (Returns `{ report, usage }`) |
 | `generateWikiDossier(entityName, entityType, memories)` | `openai/gpt-4o-mini` | Synthesizes a structured Markdown wiki dossier for an entity based on its linked memories. (Returns `{ dossier, usage }`) |
+| `generateThreadSummary(threadName, memories)` | `openai/gpt-4o-mini` | Consolidates a thread into a high-level Markdown summary. (Returns `{ summary, usage }`) |
 | `classifyMemoryEdge(memoryA, memoryB)` | `openai/gpt-4o-mini` | Classifies the semantic relationship between two memories. Returns `{ relation, direction, confidence, rationale, valid_from, valid_until, usage }`. Used by Phase 21 Typed Edge Classifier. |
 
 ### LLM Output Schema (from `extractMetadata`)
@@ -181,6 +184,7 @@ Captured as *observation*
 | `traverse_entity_graph` | `start_entity_id` (uuid), `max_depth?` (3), `relationship_type?` | Multi-hop entity graph walk via `traverse_entity_graph` recursive CTE RPC. |
 | `find_entity_path` | `start_entity_id` (uuid), `end_entity_id` (uuid), `max_depth?` (6) | BFS shortest path between two entities. |
 | `list_entity_edge_types` | *(none)* | List all distinct entity relationship types in use with counts and average confidence. |
+| `summarize_thread` | `thread_id` (uuid), `dry_run?` (bool) | Trigger thread summarization for a specific thread. Consolidates memories and creates `derived_from` edges. |
 
 ---
 
