@@ -6,10 +6,10 @@
     "scripts": {
         "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
         "dev:client": "vite --host",
-        "dev:server": "node --import tsx --env-file=.env --watch server/index.ts",
+        "dev:server": "node --import tsx --env-file=../../../.env --watch server/index.ts",
         "build": "tsc -b && vite build",
-        "serve": "NODE_ENV=production node --import tsx --env-file=.env server/index.ts",
-        "sync": "node --import tsx --env-file=.env server/sync-content.ts",
+        "serve": "NODE_ENV=production node --import tsx --env-file=../../../.env server/index.ts",
+        "sync": "node --import tsx --env-file=../../../.env server/sync-content.ts",
         "lint": "eslint .",
         "preview": "vite preview"
     },
