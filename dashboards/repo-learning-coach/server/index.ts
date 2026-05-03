@@ -165,6 +165,28 @@ app.get('/api/research/:slug', async (request, response) => {
     }
 })
 
+import { getLibraryCollections, getLibraryDocument } from './library-loader.js'
+
+app.get('/api/library', async (_request, response) => {
+    try {
+        response.json(getLibraryCollections())
+    } catch (error) {
+        response.status(500).json({
+            error: error instanceof Error ? error.message : 'Failed to load library collections.',
+        })
+    }
+})
+
+app.get('/api/library/:collectionSlug/:docSlug', async (request, response) => {
+    try {
+        response.json(getLibraryDocument(request.params.collectionSlug, request.params.docSlug))
+    } catch (error) {
+        response.status(404).json({
+            error: error instanceof Error ? error.message : 'Document not found.',
+        })
+    }
+})
+
 if (process.env.NODE_ENV === 'production' && existsSync(DIST_DIR)) {
     app.use(express.static(DIST_DIR))
     app.get('*', (_request, response) => {

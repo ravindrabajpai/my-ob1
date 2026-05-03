@@ -138,3 +138,22 @@ export type CaptureResult = {
     memoryId: string | null
     message: string
 }
+
+export type LibraryDocumentSummary = {
+    slug: string
+    title: string
+    summary: string
+}
+
+export type LibraryCollection = {
+    slug: string
+    title: string
+    documents: LibraryDocumentSummary[]
+}
+
+export type LibraryDocumentContent = {
+    slug: string
+    title: string
+    collection: string
+    content: string
+}

@@ -7,6 +7,8 @@ import type {
     QuizResult,
     ResearchDocumentDetail,
     UnderstandingState,
+    LibraryCollection,
+    LibraryDocumentContent,
 } from './types'
 
 const requestJson = async <T>(input: RequestInfo, init?: RequestInit) => {
@@ -74,3 +76,10 @@ export const submitQuiz = (
         method: 'POST',
         body: JSON.stringify({ answers }),
     })
+
+export const fetchLibraryCollections = () =>
+    requestJson<LibraryCollection[]>('/api/library')
+
+export const fetchLibraryDocument = (collectionSlug: string, docSlug: string) =>
+    requestJson<LibraryDocumentContent>(`/api/library/${collectionSlug}/${docSlug}`)
+

@@ -5,6 +5,11 @@ export type RepoLearningConfig = {
     audience: string
     researchDirectory: string[]
     lessonDirectory: string[]
+    staticLibrary: {
+        slug: string
+        title: string
+        path: string[]
+    }[]
     track: {
         slug: string
         title: string
@@ -26,6 +31,28 @@ export const REPO_LEARNING_CONFIG: RepoLearningConfig = {
         'Developers onboarding to my-ob1, or anyone who wants a structured path to understand the architecture, schema, and extension patterns.',
     researchDirectory: ['research'],
     lessonDirectory: ['curriculum', 'lessons'],
+    staticLibrary: [
+        {
+            slug: 'user-manuals',
+            title: 'User Manuals',
+            path: ['..', '..', 'user-manuals'],
+        },
+        {
+            slug: 'product-docs',
+            title: 'Product Docs',
+            path: ['..', '..', 'docs'],
+        },
+        {
+            slug: 'skills',
+            title: 'Agent Skills',
+            path: ['..', '..', '.agents', 'skills'],
+        },
+        {
+            slug: 'obsidian-vault',
+            title: 'Obsidian Vault',
+            path: ['..', '..', '..', 'obsedian-vault-my-ob1'],
+        },
+    ],
     track: {
         slug: 'my-ob1-foundations',
         title: 'my-ob1 Architecture Foundations',

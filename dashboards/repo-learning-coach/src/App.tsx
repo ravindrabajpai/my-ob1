@@ -68,9 +68,12 @@ const formatDate = (value: string | null) =>
       }).format(new Date(value))
     : 'Not yet'
 
+import { LibraryIndex, LibraryDocument } from './Library'
+
 function App() {
   const [bootstrap, setBootstrap] = useState<BootstrapData | null>(null)
-  const [activeView, setActiveView] = useState<'lesson' | 'research'>('lesson')
+  const [activeView, setActiveView] = useState<'lesson' | 'research' | 'library' | 'library_doc'>('lesson')
+  const [librarySelection, setLibrarySelection] = useState<{ collectionSlug: string, docSlug: string } | null>(null)
   const [selectedLessonSlug, setSelectedLessonSlug] = useState<string | null>(null)
   const [selectedResearchSlug, setSelectedResearchSlug] = useState<string | null>(null)
   const [lessonDetail, setLessonDetail] = useState<LessonDetail | null>(null)
@@ -430,9 +433,27 @@ function App() {
           >
             Research vault
           </button>
+          <button
+            className={activeView === 'library' || activeView === 'library_doc' ? 'is-selected' : ''}
+            onClick={() => setActiveView('library')}
+            type="button"
+          >
+            Reference library
+          </button>
         </div>
 
-        {activeView === 'lesson' ? (
+        {activeView === 'library' ? (
+          <LibraryIndex onSelectDocument={(col, doc) => {
+            setLibrarySelection({ collectionSlug: col, docSlug: doc })
+            setActiveView('library_doc')
+          }} />
+        ) : activeView === 'library_doc' && librarySelection ? (
+          <LibraryDocument 
+            collectionSlug={librarySelection.collectionSlug} 
+            docSlug={librarySelection.docSlug} 
+            onBack={() => setActiveView('library')} 
+          />
+        ) : activeView === 'lesson' ? (
           lessonLoading || !lessonDetail ? (
             <PanelLoader label="Loading lesson..." />
           ) : (
