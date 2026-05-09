@@ -16,7 +16,7 @@ The "Wiki Compiler" runs in two phases:
 
 ## Setup
 
-Create a `.env` file in this directory (`.agents/skills/obsidian-wiki-compiler/.env`) with the following variables:
+Use `.env` file from this directory (`~/work/agi/open-brain-combined/.env`) to read the following variables:
 
 ```env
 SUPABASE_URL=https://<your-project-ref>.supabase.co

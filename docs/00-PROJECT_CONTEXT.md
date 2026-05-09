@@ -180,12 +180,6 @@ my-ob1/
 │       └── repo-learning.config.ts      # Project identity and directory config
 ├── .agents/
 │   ├── skills/
-│   │   ├── project-context/
-│   │   │   ├── SKILL.md                    # THIS FILE — root project index
-│   │   │   ├── schema-state.md             # Database schema reference
-│   │   │   ├── edge-functions.md           # Edge Function module reference
-│   │   │   ├── 03-COMPLETED_PHASES.md      # Completed project phases
-│   │   │   └── 04-FUTURE_HORIZONS.md       # Project future horizons
 │   │   ├── auto-capture/
 │   │   │   └── SKILL.md                    # Triggered at the end of sessions
 │   │   ├── workflow-observability/
@@ -208,10 +202,6 @@ my-ob1/
 │   │   └── entity-relationship-backfill/
 │   │       ├── SKILL.md                    # Entity relationship backfill — when and how to run
 │   │       └── classify.ts                 # Local Deno CLI: co-occurrence scan + LLM classification
-│   ├── workflows/
-│   │   └── development-loop.yaml       # Standard feature dev workflow
-│   └── rules/
-│       └── 01-context-management.md    # Context sync enforcement rule (absolute, non-negotiable)
 ├── README.md                           # Public-facing documentation
 ├── RELEASE_NOTES.md                    # Phase-by-phase changelog
 ├── .key.txt                            # Credential tracker (NOT committed)

@@ -996,6 +996,207 @@ server.registerTool(
   }
 );
 
+// Tool 24: Agent Memory Recall
+server.registerTool(
+  "agent_memory_recall",
+  {
+    title: "Agent Memory Recall",
+    description: "Recall operational memory (lessons, constraints, prior attempts) written by agents. Respects project boundaries and returns use_policies for safety.",
+    inputSchema: {
+      workspace_id: z.string().min(1).describe("The target workspace ID"),
+      project_id: z.string().optional().describe("The target project ID (if scoped)"),
+      runtime_name: z.string().default("unknown").describe("The agent framework making the call"),
+      task_id: z.string().optional().describe("The current task ID for tracing"),
+      query: z.string().min(1).describe("Semantic search query"),
+      max_items: z.number().default(10).describe("Maximum memories to return"),
+    },
+  },
+  async ({ workspace_id, project_id, runtime_name, task_id, query, max_items }) => {
+    try {
+      const { embedding } = await getEmbedding(query);
+      const { data: matches, error: matchError } = await supabase.rpc("match_memories", {
+        query_embedding: embedding,
+        match_threshold: 0.25,
+        match_count: Math.max(max_items * 4, 20),
+        filter: {},
+      });
+      if (matchError) throw matchError;
+
+      const similarityByMemory = new Map<string, number>();
+      for (const item of matches || []) similarityByMemory.set(item.id, item.similarity);
+      const coreIds = Array.from(similarityByMemory.keys());
+
+      let qb = supabase
+        .from("agent_memories")
+        .select("*")
+        .eq("workspace_id", workspace_id)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      
+      if (coreIds.length > 0) qb = qb.in("core_memory_id", coreIds);
+
+      const { data: rawMemories, error: memoryError } = await qb;
+      if (memoryError) throw memoryError;
+
+      // Filter and rank
+      const ranked = (rawMemories || [])
+        .filter((m: any) => {
+          if (m.workspace_id !== workspace_id) return false;
+          if (project_id && m.project_id && m.project_id !== project_id) return false;
+          if (["stale", "superseded", "rejected", "disputed"].includes(m.lifecycle_status)) return false;
+          if (m.requires_user_confirmation && m.review_status === "pending") return false;
+          return true;
+        })
+        .map((m: any) => {
+          const sim = similarityByMemory.get(m.core_memory_id || "") || 0;
+          const prov = m.provenance_status === "user_confirmed" ? 0.3 : m.provenance_status === "imported" ? 0.22 : 0.05;
+          const pol = m.can_use_as_instruction ? 0.2 : m.can_use_as_evidence ? 0.08 : -0.2;
+          const rev = m.review_status === "confirmed" ? 0.15 : -0.1;
+          const ranking_score = sim + prov + pol + rev + Number(m.confidence || 0) * 0.15;
+          return { ...m, similarity: sim, ranking_score };
+        })
+        .sort((a, b) => b.ranking_score - a.ranking_score)
+        .slice(0, max_items);
+
+      // Log Trace
+      const { data: trace } = await supabase.from("agent_memory_recall_traces").insert({
+        workspace_id,
+        project_id: project_id ?? null,
+        runtime_name,
+        task_id: task_id ?? null,
+        query,
+        schema_version: "openbrain.agent_memory.recall.v1",
+        request_payload: { query, max_items },
+        response_policy: { max_items },
+      }).select("*").single();
+
+      if (trace && ranked.length > 0) {
+        await supabase.from("agent_memory_recall_items").insert(ranked.map((m, i) => ({
+          trace_id: trace.id,
+          memory_id: m.id,
+          rank: i + 1,
+          similarity: m.similarity,
+          ranking_score: m.ranking_score,
+          use_policy_snapshot: {
+            can_use_as_instruction: m.can_use_as_instruction,
+            can_use_as_evidence: m.can_use_as_evidence,
+            requires_user_confirmation: m.requires_user_confirmation,
+          },
+        })));
+        await supabase.from("agent_memory_audit_events").insert({
+          event_type: "recall_requested",
+          workspace_id, project_id: project_id ?? null, trace_id: trace.id, runtime_name, task_id: task_id ?? null,
+          payload: { returned_count: ranked.length }
+        });
+      }
+
+      const formatted = ranked.map(m => ({
+        id: m.id,
+        summary: m.summary,
+        content: m.content,
+        use_policy: {
+          can_use_as_instruction: m.can_use_as_instruction,
+          can_use_as_evidence: m.can_use_as_evidence,
+        },
+        freshness: { created_at: m.created_at, stale_after: m.stale_after },
+      }));
+
+      return { content: [{ type: "text" as const, text: JSON.stringify({ trace_id: trace?.id, memories: formatted }, null, 2) }] };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
+// Tool 25: Agent Memory Writeback
+server.registerTool(
+  "agent_memory_writeback",
+  {
+    title: "Agent Memory Writeback",
+    description: "Write back compact operational memory (decisions, lessons, next steps) after an agent finishes a task. Requires idempotency keys and creates pending memories for human review.",
+    inputSchema: {
+      workspace_id: z.string().min(1),
+      project_id: z.string().optional(),
+      runtime_name: z.string().default("unknown"),
+      task_id: z.string().optional(),
+      idempotency_key: z.string().optional(),
+      memory_payload: z.object({
+        decisions: z.array(z.string()).default([]),
+        outputs: z.array(z.string()).default([]),
+        lessons: z.array(z.string()).default([]),
+        constraints: z.array(z.string()).default([]),
+        unresolved_questions: z.array(z.string()).default([]),
+        next_steps: z.array(z.string()).default([]),
+        failures: z.array(z.string()).default([]),
+      }),
+    },
+  },
+  async ({ workspace_id, project_id, runtime_name, task_id, idempotency_key, memory_payload }) => {
+    try {
+      const rows: { type: string, content: string }[] = [];
+      const p = memory_payload;
+      p.decisions.forEach(c => rows.push({ type: "decision", content: c }));
+      p.outputs.forEach(c => rows.push({ type: "output", content: c }));
+      p.lessons.forEach(c => rows.push({ type: "lesson", content: c }));
+      p.constraints.forEach(c => rows.push({ type: "constraint", content: c }));
+      p.unresolved_questions.forEach(c => rows.push({ type: "open_question", content: c }));
+      p.next_steps.forEach(c => rows.push({ type: "work_log", content: `Next step: ${c}` }));
+      p.failures.forEach(c => rows.push({ type: "failure", content: c }));
+
+      if (rows.length === 0) return { content: [{ type: "text" as const, text: "No memory rows to write." }] };
+
+      const created = [];
+      for (const [index, row] of rows.entries()) {
+        const hashData = new TextEncoder().encode(`${row.type}:${row.content}`);
+        const hashBuffer = await crypto.subtle.digest("SHA-256", hashData);
+        const content_hash = Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, "0")).join("");
+        
+        const baseKey = idempotency_key || `${workspace_id}:${runtime_name}:${task_id || "task"}:${content_hash}`;
+        const final_idempotency_key = `${baseKey}:${index}`;
+
+        const { data: existing } = await supabase.from("agent_memories").select("id").eq("idempotency_key", final_idempotency_key).maybeSingle();
+        if (existing) {
+          created.push(existing.id);
+          continue;
+        }
+
+        const { data: memory, error } = await supabase.from("agent_memories").insert({
+          workspace_id,
+          project_id: project_id ?? null,
+          visibility: project_id ? "project" : "personal",
+          memory_type: row.type,
+          summary: row.content.replace(/\s+/g, " ").slice(0, 140),
+          content: row.content,
+          provenance_status: "generated",
+          confidence: 0.5,
+          created_by: "agent",
+          runtime_name,
+          task_id: task_id ?? null,
+          can_use_as_instruction: false,
+          can_use_as_evidence: true,
+          requires_user_confirmation: true,
+          review_status: "pending",
+          idempotency_key: final_idempotency_key,
+          content_hash,
+        }).select("id").single();
+        
+        if (error) throw error;
+        created.push(memory.id);
+
+        await supabase.from("agent_memory_audit_events").insert({
+          event_type: "memory_written",
+          workspace_id, project_id: project_id ?? null, memory_id: memory.id, runtime_name, task_id: task_id ?? null,
+          payload: { actor_kind: "agent" }
+        });
+      }
+
+      return { content: [{ type: "text" as const, text: `Successfully wrote ${created.length} agent memories (Pending review). IDs: ${created.join(", ")}` }] };
+    } catch (err: unknown) {
+      return { content: [{ type: "text" as const, text: `Error: ${(err as Error).message}` }], isError: true };
+    }
+  }
+);
+
 // --- Hono App with Auth Check ---
 
 const app = new Hono();

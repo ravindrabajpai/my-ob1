@@ -29,6 +29,6 @@ This guide provides standard operating procedures (SOP) for developers adding a 
 3. Register **mutation tools** (e.g., `add_finance_asset`), but ensure they insert payloads into the `mcp_operation_queue` parameter instead of modifying the database directly to maintain approval locks.
 
 ## 5. Update Documentation Context
-Complete the loop by updating the `.agents/skills/project-context/` files:
+Complete the loop by updating the `docs/` files:
 1. Add the new tables to `schema-state.md` and the ER diagram.
 2. Ensure any new specific details are captured in `edge-functions.md`.

@@ -39,3 +39,12 @@ After scaffolding, provide a concise summary outlining:
 1. The exact CLI commands to deploy the database changes (e.g., `npx supabase db push --workdir .`).
 2. The exact CLI commands to deploy the Edge Function (e.g., `npx supabase functions deploy [feature] --no-verify-jwt --workdir .`).
 3. 2-3 explicit test cases (e.g., `curl` commands with the required headers to trigger the function manually, or SQL checks to verify background jobs).
+   - **CRITICAL:** Always use the following environment variables when building commands (like `curl` or local scripts) for me to test:
+     - `SUPABASE_URL`
+     - `SUPABASE_ANON_KEY`
+     - `SUPABASE_SERVICE_ROLE_KEY`
+     - `OBSIDIAN_VAULT_PATH`
+     - `OPENROUTER_API_KEY`
+     - `MCP_ACCESS_KEY`
+     - `CONTEXT7_API_KEY`
+   - **CRITICAL HTTP HEADER:** When providing `curl` commands to test MCP tools via Edge Functions, you MUST include the `-H "Accept: application/json, text/event-stream"` header. Without this, `@hono/mcp` will reject the request with a `406 Not Acceptable` error.

@@ -20,18 +20,12 @@ This rule activates at the **start of every conversation turn** where the user r
 
 Before formulating ANY plan or writing ANY code, you MUST:
 
-1. Read `.agents/skills/project-context/SKILL.md` (the root project index).
+1. Read `docs/00-PROJECT_CONTEXT.md` (the root project index).
 2. Read the module-specific files relevant to the task:
    - **Database work** → read `schema-state.md`
    - **Edge Function / ingestion / MCP work** → read `edge-functions.md`
    - **Planning / scoping** → read `03-COMPLETED_PHASES.md` and `04-FUTURE_HORIZONS.md`
-3. Read `.agents/workflows/development-loop.yaml` and follow it as your execution protocol.
-
-You MUST NOT skip this step. You MUST NOT rely on memory from previous conversations. Read the files fresh every time.
-
-### 2. Mandatory Workflow Adherence
-
-ALL code changes MUST follow the workflow defined in `.agents/workflows/development-loop.yaml`. The workflow is not optional. The key gates are:
+ALL code changes MUST follow a strict workflow. The key gates are:
 
 - **You MUST output a plan and WAIT for explicit user approval** before writing any code.
 - **You MUST NOT auto-execute code** after presenting a plan. Wait for the user to say "yes," "approved," "go ahead," or equivalent.
@@ -52,7 +46,7 @@ This is NOT conditional on "fundamental" changes. Every code change that alters 
 You MUST NOT tell the user "task complete," "done," or equivalent until:
 
 1. Code changes are written.
-2. Relevant context files in `.agents/skills/project-context/` are updated.
+2. Relevant context files in `docs/` are updated.
 3. You have confirmed to the user which context files were updated.
 
 If you finish code changes but forget to update context files, you have NOT completed the task.
@@ -63,6 +57,6 @@ Ensure all proposed solutions align with:
 - **Deno/TypeScript** for all Supabase Edge Functions
 - **Supabase PostgreSQL + pgvector** for data storage
 - **OpenRouter** for LLM inference and embeddings
-- The multi-persona design (Planner, Strategist, Mentor) described in SKILL.md
+- The multi-persona design (Planner, Strategist, Mentor) described in 00-PROJECT_CONTEXT.md
 
 If a proposed solution conflicts with these constraints, flag it to the user before proceeding.

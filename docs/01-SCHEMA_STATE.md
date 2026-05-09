@@ -286,6 +286,30 @@ Domain-specific achievements tied to learning topics and specific memories.
 
 ---
 
+### Agent Memory & Provenance (Sidecar Schema)
+
+#### `agent_memories`
+- Governed operational memory (scratchpad) for agents.
+- **Columns:** `id`, `core_memory_id` (FK to `memories`), `workspace_id`, `project_id`, `visibility`, `memory_type`, `summary`, `content`, `lifecycle_status`, `provenance_status`, `confidence`, `created_by`, `runtime_name`, `task_id`, `can_use_as_instruction`, `can_use_as_evidence`, `requires_user_confirmation`, `review_status`, `idempotency_key`, `content_hash`, `created_at`.
+
+#### `agent_memory_recall_traces`
+- Audit log of agent queries.
+- **Columns:** `id`, `workspace_id`, `project_id`, `request_id`, `runtime_name`, `task_id`, `query`, `schema_version`, `created_at`.
+
+#### `agent_memory_recall_items`
+- Specific memories returned during a recall trace.
+- **Columns:** `trace_id`, `memory_id`, `rank`, `similarity`, `ranking_score`, `used`, `created_at`.
+
+#### `agent_memory_audit_events`
+- Immutable event stream of all agent/human memory lifecycle actions.
+- **Columns:** `id`, `event_type`, `workspace_id`, `project_id`, `memory_id`, `trace_id`, `actor_kind`, `runtime_name`, `task_id`, `payload`, `created_at`.
+
+#### `agent_memory_review_actions`
+- Log of human decisions (confirm/reject/merge) on pending agent memories.
+- **Columns:** `id`, `memory_id`, `action`, `actor_id`, `notes`, `created_at`.
+
+---
+
 ## RPC Functions
 
 ### `match_memories`

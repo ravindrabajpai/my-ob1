@@ -188,6 +188,8 @@ Captured as *observation*
 | `find_entity_path` | `start_entity_id` (uuid), `end_entity_id` (uuid), `max_depth?` (6) | BFS shortest path between two entities. |
 | `list_entity_edge_types` | *(none)* | List all distinct entity relationship types in use with counts and average confidence. |
 | `summarize_thread` | `thread_id` (uuid), `dry_run?` (bool) | Trigger thread summarization for a specific thread. Consolidates memories and creates `derived_from` edges. |
+| `agent_memory_recall` | `workspace_id`, `query`, `max_items` | Recall governed operational memory. Respects scopes and returns use_policies. |
+| `agent_memory_writeback` | `workspace_id`, `idempotency_key`, `memory_payload` | Safely write back agent thoughts into `pending` state for human review. |
 
 ---
 

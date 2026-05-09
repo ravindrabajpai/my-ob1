@@ -158,3 +158,8 @@
 - [x] **Optimized Statistics:** Created `get_dashboard_stats()` RPC to efficiently compute aggregate counts and distributions.
 - [x] **Auth Alignment:** Validates `x-brain-key` header to ensure it strictly matches the existing `MCP_ACCESS_KEY`.
 
+### Phase 27: Governed Agent Memory & Provenance
+- [x] **Schema Implementation:** Created the 8-table sidecar schema via `026_agent_memory_provenance.sql` anchored around `agent_memories`, along with recall traces, audit events, and full `service_role`-only RLS enforcement.
+- [x] **Edge Function Tools:** Ported OB1 Agent Memory API into native `open-brain-mcp` tools (`agent_memory_recall`, `agent_memory_writeback`). Validates payloads, handles hashing idempotency, logs exact audit traces, and assigns policies for instruction/evidence use.
+- [x] **Agent Skills Specification:** Authored `.agents/skills/openclaw-agent-memory/SKILL.md` enforcing safe read/write habits (avoiding logs, large blobs, raw transcripts) with idempotency patterns.
+- [x] **Dashboard Integration:** Scaffolded the `AgentMemoryReview` vertical in `repo-learning-coach` to serve as the human-in-the-loop interface for promoting `pending` operational scratchpad memory into canonical rules/knowledge.
